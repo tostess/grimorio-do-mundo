@@ -110,6 +110,37 @@ export class SessionHost {
     this.broadcast({ type: 'STATE_SYNC', snapshot } satisfies SessionMessage);
   }
 
+  // Distribui a imagem de um mapa para os peers via chunking base64 (~64 KB / chunk).
+  async pushMapImage(
+    imageRefId: string,
+    mime: string,
+    buffer: ArrayBuffer,
+    onProgress?: (peerId: string, sent: number, total: number) => void,
+    peerIds?: string[],
+  ): Promise<void> {
+    const totalBytes = buffer.byteLength;
+    const totalChunks = Math.max(1, Math.ceil(totalBytes / CHUNK_SIZE));
+    const targets = peerIds ?? [...this.connections.keys()];
+
+    for (const peerId of targets) {
+      const conn = this.connections.get(peerId);
+      if (!conn?.open) continue;
+
+      conn.send({ type: 'MAP_IMAGE_BEGIN', imageRefId, mime, totalBytes, totalChunks } satisfies SessionMessage);
+
+      for (let i = 0; i < totalChunks; i++) {
+        const start = i * CHUNK_SIZE;
+        const end = Math.min(start + CHUNK_SIZE, totalBytes);
+        const data = _toBase64Chunk(buffer, start, end);
+        conn.send({ type: 'MAP_IMAGE_CHUNK', imageRefId, index: i, data } satisfies SessionMessage);
+        onProgress?.(peerId, i + 1, totalChunks);
+        await new Promise(r => setTimeout(r, 4));
+      }
+
+      conn.send({ type: 'MAP_IMAGE_END', imageRefId } satisfies SessionMessage);
+    }
+  }
+
   // Distribui um asset de áudio para os peers via chunking base64 (~64 KB / chunk).
   // onProgress é chamada após cada chunk enviado para um peer (sent / total).
   async pushAudioAsset(

@@ -35,6 +35,7 @@ function emptyEvent(eras: string[], defaults: Partial<Omit<GrimoireEvent, 'id'>>
     personal: 'not',
     tags: [],
     masterNotes: '',
+    mapMarkerId: null,
     ...defaults,
   };
 }
@@ -356,6 +357,24 @@ export function EventModal({ event, onClose, defaultValues }: Props) {
                   <option value="yes">Privado do Mestre</option>
                 </select>
               </div>
+              {state.worldMaps?.length > 0 && (() => {
+                const allMarkers = state.worldMaps.flatMap(m => m.markers.map(mk => ({ ...mk, mapName: m.name })));
+                return (
+                  <div>
+                    <label>📍 Local no Mapa</label>
+                    <select
+                      value={form.mapMarkerId ?? ''}
+                      onChange={e => set('mapMarkerId', e.target.value || null)}
+                      style={{ width: '100%' }}
+                    >
+                      <option value="">— Nenhum —</option>
+                      {allMarkers.map(mk => (
+                        <option key={mk.id} value={mk.id}>{mk.mapName} › {mk.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                );
+              })()}
               <div className={styles.fullRow}>
                 <label>🔒 Notas do Mestre</label>
                 <textarea

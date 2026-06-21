@@ -4,7 +4,7 @@ import {
 } from 'react';
 import type {
   SessionState, SessionRole, PeerInfo, SessionSnapshot, LogEntry,
-  CombatState, InitiativeEntry, AssignedCharacter,
+  CombatState, InitiativeEntry, AssignedCharacter, PlayerPin, SharedMap,
 } from '../types/session';
 import type { SessionMessage } from '../net/protocol';
 import { SessionHost } from '../net/SessionHost';
@@ -13,6 +13,10 @@ import { generateShortCode } from '../net/qr';
 import { INITIAL_SESSION_STATE } from '../types/session';
 import { audioManager, type PlayOptions } from '../utils/audio';
 import { addAudioDB, type AudioMeta } from '../utils/audioStorage';
+import { addMapImageDB } from '../utils/mapStorage';
+
+// Paleta de cores por slot de jogador (até 6)
+const PIN_COLORS = ['#e63946', '#457b9d', '#2a9d8f', '#e9c46a', '#f4a261', '#a8dadc'];
 
 // ── Dice parser ───────────────────────────────────────────────────────────────
 
@@ -71,6 +75,9 @@ type SessionAction =
   | { type: 'ADVANCE_TURN'; currentTurnIndex: number; round: number }
   | { type: 'SET_AUDIO_TRACK'; trackId: string; state: { playing: boolean; volume: number; loop: boolean } }
   | { type: 'CLEAR_AUDIO_TRACK'; trackId: string }
+  | { type: 'SET_SHARED_MAP'; sharedMap: SharedMap | null }
+  | { type: 'SET_PLAYER_PIN'; pin: PlayerPin }
+  | { type: 'CLEAR_PLAYER_PIN'; peerId: string }
   | { type: 'RESET' };
 
 function sessionReducer(state: SessionState, action: SessionAction): SessionState {
@@ -163,6 +170,15 @@ function sessionReducer(state: SessionState, action: SessionAction): SessionStat
       delete active[action.trackId];
       return { ...state, audioState: { active } };
     }
+    case 'SET_SHARED_MAP':
+      return { ...state, sharedMap: action.sharedMap };
+    case 'SET_PLAYER_PIN':
+      return { ...state, playerPins: { ...state.playerPins, [action.pin.peerId]: action.pin } };
+    case 'CLEAR_PLAYER_PIN': {
+      const pins = { ...state.playerPins };
+      delete pins[action.peerId];
+      return { ...state, playerPins: pins };
+    }
     case 'RESET':
       return INITIAL_SESSION_STATE;
     default:
@@ -174,10 +190,9 @@ function sessionReducer(state: SessionState, action: SessionAction): SessionStat
 
 interface SessionContextType {
   session: SessionState;
-  // Incrementa quando um asset de áudio é recebido via push (guest) — trigger para re-fetch do IDB
   audioAssetsVersion: number;
-  // Progresso de transferência de assets: assetId → peerId → fração (0–1)
   audioTransferProgress: Record<string, Record<string, number>>;
+  mapTransferProgress: Record<string, number>;
   openSession: () => string;
   joinSession: (hostId: string, playerName: string) => void;
   closeSession: () => void;
@@ -191,6 +206,11 @@ interface SessionContextType {
   applyHp: (entryId: string, hp: number) => void;
   applyConditions: (entryId: string, conditions: string[]) => void;
   assignCharacter: (peerId: string, characterId: string | null, character: AssignedCharacter | null) => void;
+  // Mapa (host only)
+  shareMap: (sharedMap: SharedMap, imageBuffer: ArrayBuffer, mime: string) => Promise<void>;
+  // Pins (host e guest)
+  updateMyPin: (x: number, y: number) => void;
+  clearMyPin: () => void;
   // Audio
   playAudioTrack: (trackId: string, options?: PlayOptions) => Promise<void>;
   stopAudioTrack: (trackId: string) => void;
@@ -216,11 +236,13 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [session, dispatch] = useReducer(sessionReducer, INITIAL_SESSION_STATE);
   const [audioAssetsVersion, setAudioAssetsVersion] = useState(0);
   const [audioTransferProgress, setAudioTransferProgress] = useState<Record<string, Record<string, number>>>({});
+  const [mapTransferProgress, setMapTransferProgress] = useState<Record<string, number>>({});
   const hostRef = useRef<SessionHost | null>(null);
   const guestRef = useRef<SessionGuest | null>(null);
   const sessionRef = useRef(session);
   sessionRef.current = session;
   const pendingTransfersRef = useRef<Map<string, PendingTransfer>>(new Map());
+  const pendingMapChunksRef = useRef<Map<string, { chunks: Map<number, string>; totalChunks: number; mime: string }>>(new Map());
 
   const _addLog = useCallback((
     peerId: string,
@@ -257,6 +279,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       audioState: { active: {} },
       tokens: [],
       activeMapId: null,
+      sharedMap: null,
+      playerPins: {},
     };
 
     hostRef.current = new SessionHost(
@@ -275,15 +299,35 @@ export function SessionProvider({ children }: { children: ReactNode }) {
               : `${msg.playerName}: ${msg.text}`,
           );
         }
-        // ACK de transferência de asset — atualiza progresso host-side
         if (msg.type === 'AUDIO_ASSET_ACK') {
           setAudioTransferProgress(prev => {
             const assetProgress = prev[msg.assetId];
             if (!assetProgress) return prev;
-            return {
-              ...prev,
-              [msg.assetId]: { ...assetProgress, [from]: 1 },
-            };
+            return { ...prev, [msg.assetId]: { ...assetProgress, [from]: 1 } };
+          });
+        }
+        // Pin do jogador: host atualiza snapshot + broadcast para todos
+        if (msg.type === 'PLAYER_PIN_UPDATE') {
+          dispatch({ type: 'SET_PLAYER_PIN', pin: msg.pin });
+          hostRef.current?.broadcast(msg, from);
+          const snap = sessionRef.current;
+          hostRef.current?.updateSnapshot({
+            ...snap, playerPins: { ...snap.playerPins, [msg.pin.peerId]: msg.pin },
+          } as SessionSnapshot);
+        }
+        if (msg.type === 'PLAYER_PIN_CLEAR') {
+          dispatch({ type: 'CLEAR_PLAYER_PIN', peerId: msg.peerId });
+          hostRef.current?.broadcast(msg, from);
+          const snap = { ...sessionRef.current } as SessionSnapshot;
+          const pins = { ...snap.playerPins };
+          delete pins[msg.peerId];
+          hostRef.current?.updateSnapshot({ ...snap, playerPins: pins });
+        }
+        if (msg.type === 'MAP_IMAGE_ACK') {
+          setMapTransferProgress(prev => {
+            const next = { ...prev };
+            delete next[msg.imageRefId];
+            return next;
           });
         }
       },
@@ -432,9 +476,48 @@ export function SessionProvider({ children }: { children: ReactNode }) {
             }
 
             pendingTransfersRef.current.delete(msg.assetId);
-            // Confirma recebimento ao host
             guestRef.current?.send({ type: 'AUDIO_ASSET_ACK', assetId: msg.assetId, received: transfer.totalChunks });
           })();
+        } else if (msg.type === 'MAP_SHARE') {
+          dispatch({ type: 'SET_SHARED_MAP', sharedMap: msg.sharedMap });
+          _addLog('system', 'Sistema', 'system', 'Mestre compartilhou o mapa da sessão.');
+        } else if (msg.type === 'MAP_IMAGE_BEGIN') {
+          pendingMapChunksRef.current.set(msg.imageRefId, {
+            chunks: new Map(),
+            totalChunks: msg.totalChunks,
+            mime: msg.mime,
+          });
+        } else if (msg.type === 'MAP_IMAGE_CHUNK') {
+          const transfer = pendingMapChunksRef.current.get(msg.imageRefId);
+          if (transfer) transfer.chunks.set(msg.index, msg.data);
+        } else if (msg.type === 'MAP_IMAGE_END') {
+          void (async () => {
+            const transfer = pendingMapChunksRef.current.get(msg.imageRefId);
+            if (!transfer) return;
+            const parts: ArrayBuffer[] = [];
+            for (let i = 0; i < transfer.totalChunks; i++) {
+              const chunk = transfer.chunks.get(i);
+              if (chunk) parts.push(base64ToArrayBuffer(chunk));
+            }
+            const totalLen = parts.reduce((acc, p) => acc + p.byteLength, 0);
+            const result = new Uint8Array(totalLen);
+            let offset = 0;
+            for (const part of parts) { result.set(new Uint8Array(part), offset); offset += part.byteLength; }
+            const sharedMap = sessionRef.current.sharedMap;
+            try {
+              await addMapImageDB(
+                { id: msg.imageRefId, name: 'mapa-sessao', mime: transfer.mime, width: sharedMap?.width ?? 0, height: sharedMap?.height ?? 0, createdAt: new Date().toISOString() },
+                result.buffer,
+              );
+              _addLog('system', 'Sistema', 'system', 'Imagem do mapa recebida e pronta para visualização.');
+            } catch (err) { console.warn('[Map] falha ao salvar imagem recebida:', err); }
+            pendingMapChunksRef.current.delete(msg.imageRefId);
+            guestRef.current?.send({ type: 'MAP_IMAGE_ACK', imageRefId: msg.imageRefId });
+          })();
+        } else if (msg.type === 'PLAYER_PIN_UPDATE') {
+          dispatch({ type: 'SET_PLAYER_PIN', pin: msg.pin });
+        } else if (msg.type === 'PLAYER_PIN_CLEAR') {
+          dispatch({ type: 'CLEAR_PLAYER_PIN', peerId: msg.peerId });
         }
       },
       onDisconnect: () => {
@@ -498,8 +581,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   // ── Combat helpers (host only) ──────────────────────────────────────────────
 
   const _getSnapshot = useCallback((): SessionSnapshot => {
-    const { peers, assignedCharacters, combat, audioState, tokens, activeMapId } = sessionRef.current;
-    return { peers, assignedCharacters, combat, audioState, tokens, activeMapId };
+    const { peers, assignedCharacters, combat, audioState, tokens, activeMapId, sharedMap, playerPins } = sessionRef.current;
+    return { peers, assignedCharacters, combat, audioState, tokens, activeMapId, sharedMap, playerPins };
   }, []);
 
   const startCombat = useCallback((entries: InitiativeEntry[]) => {
@@ -583,6 +666,70 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       character ? `${character.name} vinculada a um jogador.` : 'Ficha desvinculada de um jogador.',
     );
   }, [_addLog, _getSnapshot]);
+
+  // ── Map helpers ─────────────────────────────────────────────────────────────
+
+  const shareMap = useCallback(async (sharedMap: SharedMap, imageBuffer: ArrayBuffer, mime: string): Promise<void> => {
+    if (!hostRef.current) return;
+    dispatch({ type: 'SET_SHARED_MAP', sharedMap });
+    hostRef.current.broadcast({ type: 'MAP_SHARE', sharedMap } satisfies SessionMessage);
+    hostRef.current.updateSnapshot({ ..._getSnapshot(), sharedMap });
+
+    const targets = sessionRef.current.peers.filter(p => p.connected).map(p => p.peerId);
+    if (targets.length === 0) return;
+
+    const initial: Record<string, number> = {};
+    for (const pid of targets) initial[pid] = 0;
+    setMapTransferProgress(initial);
+
+    await hostRef.current.pushMapImage(
+      sharedMap.imageRefId,
+      mime,
+      imageBuffer,
+      (peerId, sent, total) => {
+        setMapTransferProgress(prev => ({ ...prev, [peerId]: sent / total }));
+      },
+      targets,
+    );
+
+    setTimeout(() => setMapTransferProgress({}), 3000);
+    _addLog('system', 'Sistema', 'system', 'Mapa compartilhado com os jogadores.');
+  }, [_addLog, _getSnapshot]);
+
+  const updateMyPin = useCallback((x: number, y: number): void => {
+    const cur = sessionRef.current;
+    const peerId = cur.myPeerId ?? 'host';
+    const playerName = cur.role === 'host' ? 'Mestre' : cur.myPlayerName;
+    // Cor baseada no índice do peer na lista (ou índice 0 para host)
+    const peerIdx = cur.peers.findIndex(p => p.peerId === peerId);
+    const color = cur.role === 'host' ? '#c9a84c' : PIN_COLORS[peerIdx >= 0 ? peerIdx % PIN_COLORS.length : 0];
+    const pin: PlayerPin = { peerId, playerName, color, x, y };
+
+    dispatch({ type: 'SET_PLAYER_PIN', pin });
+
+    const msg: SessionMessage = { type: 'PLAYER_PIN_UPDATE', pin };
+    if (cur.role === 'host') {
+      hostRef.current?.broadcast(msg);
+      hostRef.current?.updateSnapshot({ ..._getSnapshot(), playerPins: { ...cur.playerPins, [peerId]: pin } });
+    } else {
+      guestRef.current?.send(msg);
+    }
+  }, [_getSnapshot]);
+
+  const clearMyPin = useCallback((): void => {
+    const cur = sessionRef.current;
+    const peerId = cur.myPeerId ?? 'host';
+    dispatch({ type: 'CLEAR_PLAYER_PIN', peerId });
+    const msg: SessionMessage = { type: 'PLAYER_PIN_CLEAR', peerId };
+    if (cur.role === 'host') {
+      hostRef.current?.broadcast(msg);
+      const pins = { ...cur.playerPins };
+      delete pins[peerId];
+      hostRef.current?.updateSnapshot({ ..._getSnapshot(), playerPins: pins });
+    } else {
+      guestRef.current?.send(msg);
+    }
+  }, [_getSnapshot]);
 
   // ── Audio helpers ───────────────────────────────────────────────────────────
 
@@ -700,6 +847,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       session,
       audioAssetsVersion,
       audioTransferProgress,
+      mapTransferProgress,
       openSession,
       joinSession,
       closeSession,
@@ -712,6 +860,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       applyHp,
       applyConditions,
       assignCharacter,
+      shareMap,
+      updateMyPin,
+      clearMyPin,
       playAudioTrack,
       stopAudioTrack,
       setAudioVolume,

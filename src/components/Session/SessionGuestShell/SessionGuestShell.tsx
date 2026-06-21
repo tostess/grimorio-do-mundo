@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useSessionStore } from '../../../store/sessionContext';
 import { CONDITION_LABELS } from '../../../types/character';
 import { SessionLobby } from '../SessionLobby/SessionLobby';
+import { GuestMapView } from '../../WorldMap/GuestMapView';
 import styles from './SessionGuestShell.module.css';
 
 function AudioUnlockBanner() {
@@ -37,7 +38,7 @@ function initials(name: string): string {
     .join('') || '?';
 }
 
-type GuestTab = 'session' | 'character';
+type GuestTab = 'session' | 'character' | 'map';
 
 function GuestCharacterView() {
   const { session } = useSessionStore();
@@ -187,11 +188,19 @@ export function SessionGuestShell() {
         >
           Ficha
         </button>
+        <button
+          className={`${styles.tab} ${activeTab === 'map' ? styles.tabActive : ''}`}
+          onClick={() => setActiveTab('map')}
+        >
+          🗺️ Mapa
+        </button>
       </nav>
 
       <AudioUnlockBanner />
       <main className={styles.main}>
-        {activeTab === 'session' ? <SessionLobby /> : <GuestCharacterView />}
+        {activeTab === 'session' && <SessionLobby />}
+        {activeTab === 'character' && <GuestCharacterView />}
+        {activeTab === 'map' && <GuestMapView />}
       </main>
     </div>
   );

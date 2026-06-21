@@ -1,4 +1,4 @@
-import type { SessionSnapshot, PeerInfo, InitiativeEntry } from '../types/session';
+import type { SessionSnapshot, PeerInfo, InitiativeEntry, PlayerPin, SharedMap } from '../types/session';
 
 export type SessionMessage =
   | { type: 'JOIN_REQUEST'; peerId: string; playerName: string; characterId: string | null }
@@ -25,4 +25,13 @@ export type SessionMessage =
   | { type: 'COMBAT_START'; entries: InitiativeEntry[] }
   | { type: 'COMBAT_END' }
   | { type: 'TURN_ADVANCE'; currentTurnIndex: number; round: number }
-  | { type: 'CHAT_MESSAGE'; peerId: string; playerName: string; text: string };
+  | { type: 'CHAT_MESSAGE'; peerId: string; playerName: string; text: string }
+  // Mapa do Mundo — compartilhamento com guests (Fase 4.5)
+  | { type: 'MAP_SHARE'; sharedMap: SharedMap }
+  | { type: 'MAP_IMAGE_BEGIN'; imageRefId: string; mime: string; totalBytes: number; totalChunks: number }
+  | { type: 'MAP_IMAGE_CHUNK'; imageRefId: string; index: number; data: string /* base64 */ }
+  | { type: 'MAP_IMAGE_END'; imageRefId: string }
+  | { type: 'MAP_IMAGE_ACK'; imageRefId: string }
+  // Pins dos jogadores (posição livre no mapa, efêmera, não persiste no AppState)
+  | { type: 'PLAYER_PIN_UPDATE'; pin: PlayerPin }
+  | { type: 'PLAYER_PIN_CLEAR'; peerId: string };

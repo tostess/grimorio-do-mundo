@@ -1,3 +1,7 @@
+import type { WorldMap } from './worldmap';
+
+export type { WorldMap };
+
 export interface CalendarMonth {
   name: string;
   days: number;
@@ -45,6 +49,7 @@ export interface GrimoireEvent {
   personal: PersonalFlag;
   tags: string[];
   masterNotes: string;
+  mapMarkerId: string | null;
 }
 
 export interface PromptItem {
@@ -108,9 +113,11 @@ export interface AppState {
   ideas: EventIdeaCategory[];
   ui: UIState;
   counters: Counters;
+  worldMaps: WorldMap[];
+  activeMapId: string | null;
 }
 
-export type TabId = 'timeline' | 'setup' | 'stats' | 'prompts' | 'ideas' | 'types' | 'session' | 'chars';
+export type TabId = 'timeline' | 'setup' | 'stats' | 'prompts' | 'ideas' | 'types' | 'session' | 'chars' | 'map';
 
 export interface WorldMeta {
   id: string;
@@ -130,6 +137,7 @@ export interface Checkpoint {
 
 export const TABS: { id: TabId; label: string; icon: string }[] = [
   { id: 'timeline', label: 'Linha do Tempo', icon: '⏳' },
+  { id: 'map', label: 'Mapa', icon: '🗺️' },
   { id: 'setup', label: 'Configuração', icon: '🏰' },
   { id: 'stats', label: 'Estatísticas', icon: '📊' },
   { id: 'prompts', label: '400 Prompts', icon: '💡' },

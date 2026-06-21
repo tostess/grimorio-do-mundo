@@ -1,3 +1,5 @@
+import type { MapMarker } from './worldmap';
+
 export type SessionRole = 'host' | 'guest' | 'offline';
 
 export interface PeerInfo {
@@ -75,6 +77,22 @@ export interface Token {
   initials: string;
 }
 
+export interface PlayerPin {
+  peerId: string;
+  playerName: string;
+  color: string;
+  x: number;
+  y: number;
+}
+
+export interface SharedMap {
+  mapId: string;
+  imageRefId: string;
+  width: number;
+  height: number;
+  markers: MapMarker[];
+}
+
 export interface SessionSnapshot {
   peers: PeerInfo[];
   assignedCharacters: Record<string, AssignedCharacter>;
@@ -82,6 +100,8 @@ export interface SessionSnapshot {
   audioState: AudioState;
   tokens: Token[];
   activeMapId: string | null;
+  sharedMap: SharedMap | null;
+  playerPins: Record<string, PlayerPin>;
 }
 
 export interface SessionState {
@@ -97,6 +117,8 @@ export interface SessionState {
   audioState: AudioState;
   tokens: Token[];
   activeMapId: string | null;
+  sharedMap: SharedMap | null;
+  playerPins: Record<string, PlayerPin>;
   log: LogEntry[];
 }
 
@@ -113,5 +135,7 @@ export const INITIAL_SESSION_STATE: SessionState = {
   audioState: { active: {} },
   tokens: [],
   activeMapId: null,
+  sharedMap: null,
+  playerPins: {},
   log: [],
 };

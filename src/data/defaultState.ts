@@ -49,5 +49,7 @@ export function createDefaultState(): AppState {
       ideasCategory: '',
     },
     counters: { nextEventId: 1 },
+    worldMaps: [],
+    activeMapId: null,
   };
 }

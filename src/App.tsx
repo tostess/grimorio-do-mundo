@@ -17,6 +17,7 @@ import { GlobalSearch } from './components/GlobalSearch/GlobalSearch';
 import { SessionLobby } from './components/Session/SessionLobby/SessionLobby';
 import { SessionGuestShell } from './components/Session/SessionGuestShell/SessionGuestShell';
 import { CharacterList } from './components/Characters/CharacterList/CharacterList';
+import { WorldMapView } from './components/WorldMap/WorldMap';
 import styles from './App.module.css';
 
 function TabContent() {
@@ -28,6 +29,7 @@ function TabContent() {
     case 'prompts':  return <Prompts />;
     case 'ideas':    return <EventIdeas />;
     case 'types':    return <TypesData />;
+    case 'map':      return <WorldMapView />;
     case 'session':  return <SessionLobby />;
     case 'chars':    return <CharacterList />;
     default:         return <Timeline />;

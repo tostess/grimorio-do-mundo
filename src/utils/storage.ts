@@ -137,7 +137,7 @@ export function migrateState(partial: Partial<AppState>): AppState {
     significance: partial.significance?.length ? partial.significance : defaults.significance,
     events: (partial.events ?? defaults.events).map(e => {
       const ev = e as Partial<GrimoireEvent> & Pick<GrimoireEvent, 'id' | 'name' | 'era' | 'startYear'>;
-      return { ...e, tags: ev.tags ?? [], masterNotes: ev.masterNotes ?? '' };
+      return { ...e, tags: ev.tags ?? [], masterNotes: ev.masterNotes ?? '', mapMarkerId: ev.mapMarkerId ?? null };
     }),
     prompts: mergePrompts(partial.prompts),
     ideas: mergeIdeas(partial.ideas),
@@ -147,6 +147,8 @@ export function migrateState(partial: Partial<AppState>): AppState {
       filters: { ...defaults.ui.filters, ...(partial.ui?.filters ?? {}) },
     },
     counters: { ...defaults.counters, ...(partial.counters ?? {}) },
+    worldMaps: partial.worldMaps ?? [],
+    activeMapId: partial.activeMapId ?? null,
   };
 
   if (!state.setup.calendar) {

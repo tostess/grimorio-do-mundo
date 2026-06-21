@@ -158,12 +158,61 @@ npm run dev
 
 **Nota:** Os itens "servidor Node.js", "autenticação" e "colaboração GM share-only" foram removidos do escopo — conflitam com o princípio offline-first e foram substituídos pelo design P2P da Fase 5.
 
-### Fase 4 — Funcionalidades Avançadas
-- [ ] Mapa interativo (canvas ou SVG) linkado à timeline
+### ✅ Fase 4 — Mapa do Mundo Interativo & Worldbuilding Avançado — NÚCLEO CONCLUÍDO (21/06/2026)
+
+**Foco imediato desta fase: Mapa do Mundo interativo.** Os demais itens (árvore genealógica,
+relações de eventos, gerador de NPC) ficam como sub-itens posteriores. A integração D&D 5e
+(bestiário) foi absorvida pela Fase 10.
+
+> **Distinção crítica:** o **Mapa do Mundo** (esta fase) é uma ferramenta de *worldbuilding* —
+> geografia, reinos, locais, ligada à timeline. É **distinto** do `BattleMap` (Fase 9), que é
+> o grid tático de combate. São componentes separados. Integração entre os dois fica para Fase 11+.
+
+#### ✅ Mapa do Mundo — Import & Marcadores (núcleo) — CONCLUÍDO (21/06/2026)
+- [x] Instalar `konva@^9` + `react-konva@^18.2.10` (compatível com React 18) — primeira introdução do Konva; exceção em Convenções de Código atualizada para citar Fases 4 e 9
+- [x] `src/types/worldmap.ts` — `WorldMap { id, name, imageRefId, width, height, markers }`, `MapMarker { id, x, y, kind, label, description, linkedEventIds, color, visibility }`, `MarkerKind`, `MARKER_LABELS`, `MARKER_ICONS`; **x/y como fração 0–1** (sobrevive à troca de imagem)
+- [x] `src/utils/mapStorage.ts` — IndexedDB `grimorio-maps` com dois stores (`meta` + `data`): `addMapImageDB`, `getMapImageDB`, `getMapImageUrl`, `deleteMapImageDB`, `readFileAsArrayBuffer`, `getImageDimensions`
+- [x] `AppState` expandido: `worldMaps: WorldMap[]`, `activeMapId: string | null`; `GrimoireEvent` expandido: `mapMarkerId: string | null`
+- [x] `migrateState` em `storage.ts`: adiciona `worldMaps: []`, `activeMapId: null`, `mapMarkerId: null` em estados antigos
+- [x] Reducer: actions `ADD_WORLD_MAP`, `UPDATE_WORLD_MAP`, `DELETE_WORLD_MAP`, `SET_ACTIVE_MAP`, `ADD_MARKER`, `UPDATE_MARKER`, `DELETE_MARKER`; undo rastreia ADD/DELETE_WORLD_MAP e ADD/UPDATE/DELETE_MARKER
+- [x] `src/components/WorldMap/WorldMap.tsx` — canvas Konva: imagem de fundo com zoom/pan via wheel + drag; marcadores como `Group(Circle+Text)` com ícone por `kind`; clique no marcador abre popover DOM; clique no fundo em "modo adição" posiciona novo marcador; drag reposiciona marcador (recalcula fração x/y); popover lista eventos vinculados com navegação para Timeline; CRUD de marcadores via `MarkerModal`; `MapManager` para criar/deletar/trocar mapas
+- [x] Múltiplos mapas por mundo com seletor no toolbar
+- [x] Aba `🗺️ Mapa` adicionada ao `TabId`/`TABS` (posição 2, após Linha do Tempo)
+- [x] `EventModal` (sub-aba Meta): seletor "📍 Local no Mapa" vincula evento a marcador (`mapMarkerId`)
+- [x] Build verificado: `npm run build` passou (21/06/2026)
+
+**Desvios do design:**
+- `MapManager` cria mapa a partir de import de imagem direto (não tem criação de mapa "vazio" sem imagem) — simplificação intencional; mapa sem imagem não faz sentido visualmente
+- `navigateToEvent` usa busca por nome do evento na Timeline (não por ID direto) — o filtro de busca é por texto; ID direto exigiria um mecanismo de scroll/highlight na tabela que não existe ainda
+- Pinch-zoom mobile não implementado nesta iteração — Konva suporta touch events, mas a lógica de pinch requer `onTouchMove` customizado; fica para polimento futuro
+- Link inverso marcador→eventos: o `EventModal` associa evento a marcador via `mapMarkerId`; o marcador também pode ter `linkedEventIds[]` (bidirecional); os dois campos são independentes (não auto-sincronizados) — simplificação intencional para esta fase
+
+#### ✅ Mapa Visível para Jogadores + Pins — CONCLUÍDO (21/06/2026)
+- [x] `SharedMap` e `PlayerPin` adicionados a `session.ts`; `SessionState`/`SessionSnapshot` expandidos
+- [x] Protocolo (`protocol.ts`): `MAP_SHARE`, `MAP_IMAGE_BEGIN/CHUNK/END/ACK`, `PLAYER_PIN_UPDATE`, `PLAYER_PIN_CLEAR`
+- [x] `SessionHost.pushMapImage()` — mesmo padrão chunking ~64 KB do áudio
+- [x] `sessionContext.tsx`: actions `SET_SHARED_MAP`, `SET_PLAYER_PIN`, `CLEAR_PLAYER_PIN`; funções `shareMap`, `updateMyPin`, `clearMyPin`; handlers guest para todas as novas mensagens; host retransmite `PLAYER_PIN_UPDATE/CLEAR` para todos
+- [x] `WorldMap.tsx` (host): botão "🌐 Compartilhar" — envia `MAP_SHARE` + `MAP_IMAGE_*` para todos os peers; pins dos jogadores exibidos na Stage (draggable para o próprio pin); botão "👤 Meu Pin" / "🗑️ Meu Pin"
+- [x] `GuestMapView.tsx` — nova view para guests: canvas Konva read-only com imagem recebida, marcadores `visibility:'revealed'`, todos os player pins; próprio pin é draggable; botão "📌 Colocar meu pin" / "🗑️ Remover meu pin"
+- [x] `SessionGuestShell`: nova aba "🗺️ Mapa" → `GuestMapView`
+- [x] `PLAYER_PIN_CLEAR` e `PLAYER_PIN_UPDATE` do host também atualizam `SessionSnapshot` via `updateSnapshot` — late joiners recebem pins via `STATE_SYNC`
+- [x] Build verificado: `npm run build` passou (21/06/2026)
+
+**Desvios:**
+- Pins vivem em `SessionState.playerPins` (efêmero) — nunca persistidos em `AppState` ou SQLite
+- Mestre tem pin dourado (`#c9a84c`); jogadores têm cores da paleta `PIN_COLORS` (6 cores por slot)
+- `GuestMapView` detecta chegada da imagem via log (`'Imagem do mapa recebida'`) para retry do `getMapImageUrl` — sem polling, apenas reação ao evento
+
+#### Próxima sessão
+- `MapMarker.visibility: 'hidden'|'revealed'` já presente — controle granular de quais marcadores são enviados aos guests (atualmente só `'revealed'` são enviados no `MAP_SHARE`)
+
+#### Worldbuilding Avançado (posterior — manter como pendente)
 - [ ] Árvore genealógica de personagens/facções
 - [ ] Sistema de relações entre eventos (causa → efeito visual)
 - [ ] Gerador de NPC com traços, motivações e segredos
-- [ ] Integração com regras D&D 5e (bestiário, spells, etc.)
+
+#### Futuro — Mapas por IA (registrar, não implementar)
+- [ ] Geração de mapa-base por IA a partir de seed + parâmetros; marcadores sobrevivem à troca de imagem (fração x/y)
 
 ---
 
@@ -392,6 +441,27 @@ CharacterList (state: characters[], selectedId, subView)
 ### Tipos Customizados
 - Formato livre, mas recomendado: "emoji + texto".
 - Tipos padrão do sistema nunca são deletados; apenas customTypes são gerenciados.
+
+### Mapa do Mundo vs BattleMap
+
+**Distinção crítica entre dois tipos de mapa no app:**
+
+| | Mapa do Mundo (Fase 4) | BattleMap / Grid Tático (Fase 9) |
+|---|---|---|
+| Propósito | Worldbuilding: geografia, reinos, locais | Combate tático: grid, tokens, fog of war |
+| Persistência | `AppState.worldMaps[]` (SQLite via `world_states`) | `SessionState.tokens` (efêmero) |
+| Owner | Mestre (modo offline e online) | Mestre durante sessão ativa |
+| Componente | `src/components/WorldMap/` | `src/components/Session/BattleMap/` |
+| Canvas | Konva (mesma lib) | Konva (mesma lib) |
+| Integração | Aba 🗺️ Mapa; marcadores vinculados a eventos da Timeline | Aba Sessão; tokens vinculados a fichas D&D |
+
+Integração entre os dois (abrir batalha a partir de local do mapa-mundo) planejada para Fase 11+.
+
+### Mapa do Mundo — Regras
+- **Posição dos marcadores**: sempre como fração da imagem (0–1), nunca pixels absolutos. Garante que trocar a imagem-base não quebra posições dos marcadores.
+- **Imagem-base**: binário (ArrayBuffer) no IndexedDB `grimorio-maps`. Os metadados e marcadores ficam no `AppState` (SQLite).
+- **Múltiplos mapas**: cada mundo pode ter N mapas independentes (continente, cidade, masmorra). `activeMapId` determina qual está visível.
+- **Link marcador↔evento**: `MapMarker.linkedEventIds[]` + `GrimoireEvent.mapMarkerId` são bidirecionais mas não auto-sincronizados — o mestre gerencia os dois campos.
 
 ### Sessão Ao Vivo (Mesa Digital)
 
@@ -623,7 +693,8 @@ Itens intencionalmente adiados para refactor futuro:
 ```
 src/
   types/
-    index.ts              — Tipos do grimório (WorldMeta, Checkpoint, GrimoireEvent, etc.)
+    index.ts              — Tipos do grimório (WorldMeta, Checkpoint, GrimoireEvent, AppState incl. worldMaps/activeMapId, etc.)
+    worldmap.ts           — (Fase 4) WorldMap, MapMarker, MarkerKind, MARKER_LABELS, MARKER_ICONS
     session.ts            — (Fase 5) SessionState (incl. myCharacterId), PeerInfo, CombatState, Token, AudioState, LogEntry, SessionSnapshot, InitiativeEntry
     character.ts          — (Fase 6) Character, Ability5e, Skill5e, Attack, Spell, Condition5e, etc.
     map.ts                — (Fase 9) BattleMap, MapToken, FogCell, GridType, etc.
@@ -650,6 +721,7 @@ src/
     storageDB.ts          — CRUD async por entidade (worlds, states, checkpoints, characters)
     dice.ts               — Parser de notação de dados: rollDice(), rollModifier() (Fase 6)
     avatarStorage.ts      — CRUD de avatares em IndexedDB grimorio-avatars (Fase 6)
+    mapStorage.ts         — CRUD de imagens de mapa em IndexedDB grimorio-maps (meta + data stores) (Fase 4)
     audio.ts              — AudioManager singleton sobre Howler: play, stop, crossfade, unlock, refreshMeta (Fase 8)
     audioStorage.ts       — CRUD de áudio em IndexedDB grimorio-audio (meta + data stores) (Fase 8)
   components/
@@ -664,6 +736,8 @@ src/
     TypesData/            — Gestão de eras, tipos e significâncias
     WorldSelector/        — Tela de seleção/gestão de campanhas (landing + overlay)
     WorldHistory/         — Painel lateral de checkpoints (histórico de versões)
+    WorldMap/             — (Fase 4) Canvas Konva: mapa do mundo, marcadores, zoom/pan, popover, gerenciador, compartilhamento P2P, pins dos jogadores
+      GuestMapView.tsx    — View read-only para guests: imagem recebida via P2P, marcadores revealed, player pins draggable
     Characters/           — Fichas D&D 5e (Fase 6 — implementado)
       AvatarGallery/      — Upload/gestão de avatares (IDB grimorio-avatars)
       CharacterList/      — Grid de cards + navegação para CharacterSheet
@@ -812,7 +886,7 @@ StrictMode
   - `qrcode` — Geração de QR (Fase 5): UX em mesa presencial depende de scan rápido; URL de texto seria fallback, não opção principal.
   - `html5-qrcode` — Leitura de QR via câmera (Fase 5): `BarcodeDetector` API tem suporte inconsistente em mobile browsers.
   - `howler` — Áudio (Fase 8 — IMPLEMENTADO): Web Audio nativa é suficiente para POC, mas Howler gerencia loops, crossfade e formatos MP3/OGG com muito menos código e bugs.
-  - `konva` + `react-konva` — Canvas (Fase 9): Canvas2D nativo não tem hit-testing de layers, pinch-zoom nem arraste fácil; fog of war por clipping layer exige gerenciamento que Konva resolve de forma robusta.
+  - `konva` + `react-konva` — Canvas (Fases 4 e 9): Canvas2D nativo não tem hit-testing de layers, pinch-zoom nem arraste fácil. Fase 4 (Mapa do Mundo): zoom/pan + marcadores arrastáveis. Fase 9 (BattleMap): fog of war por clipping layer. Konva resolve ambos de forma robusta.
 - **CSS Modules**: cada componente tem seu `.module.css`.
 - **Tipos estritos**: sem `any`. Validar na borda (import, input do usuário).
 - **Reducer puro**: sem side effects. Side effects ficam no `useEffect`/providers.

@@ -1,4 +1,5 @@
 import type { AppState, GrimoireEvent, Setup, UIFilters, TabId } from '../types';
+import type { WorldMap, MapMarker } from '../types/worldmap';
 
 export type Action =
   | { type: 'SET_ACTIVE_TAB'; payload: TabId }
@@ -18,7 +19,14 @@ export type Action =
   | { type: 'UPDATE_FILTERS'; payload: Partial<UIFilters> }
   | { type: 'SET_IDEAS_CATEGORY'; payload: string }
   | { type: 'MARK_IDEA_USED'; payload: { categoryIndex: number; ideaIndex: number } }
-  | { type: 'IMPORT_STATE'; payload: AppState };
+  | { type: 'IMPORT_STATE'; payload: AppState }
+  | { type: 'ADD_WORLD_MAP'; payload: WorldMap }
+  | { type: 'UPDATE_WORLD_MAP'; payload: WorldMap }
+  | { type: 'DELETE_WORLD_MAP'; payload: string }
+  | { type: 'SET_ACTIVE_MAP'; payload: string | null }
+  | { type: 'ADD_MARKER'; payload: { mapId: string; marker: MapMarker } }
+  | { type: 'UPDATE_MARKER'; payload: { mapId: string; marker: MapMarker } }
+  | { type: 'DELETE_MARKER'; payload: { mapId: string; markerId: string } };
 
 export function appReducer(state: AppState, action: Action): AppState {
   switch (action.type) {
@@ -133,6 +141,50 @@ export function appReducer(state: AppState, action: Action): AppState {
 
     case 'IMPORT_STATE':
       return action.payload;
+
+    case 'ADD_WORLD_MAP':
+      return { ...state, worldMaps: [...(state.worldMaps ?? []), action.payload], activeMapId: state.activeMapId ?? action.payload.id };
+
+    case 'UPDATE_WORLD_MAP':
+      return { ...state, worldMaps: (state.worldMaps ?? []).map(m => m.id === action.payload.id ? action.payload : m) };
+
+    case 'DELETE_WORLD_MAP': {
+      const remaining = (state.worldMaps ?? []).filter(m => m.id !== action.payload);
+      return {
+        ...state,
+        worldMaps: remaining,
+        activeMapId: state.activeMapId === action.payload ? (remaining[0]?.id ?? null) : state.activeMapId,
+      };
+    }
+
+    case 'SET_ACTIVE_MAP':
+      return { ...state, activeMapId: action.payload };
+
+    case 'ADD_MARKER':
+      return {
+        ...state,
+        worldMaps: (state.worldMaps ?? []).map(m =>
+          m.id === action.payload.mapId ? { ...m, markers: [...m.markers, action.payload.marker] } : m
+        ),
+      };
+
+    case 'UPDATE_MARKER':
+      return {
+        ...state,
+        worldMaps: (state.worldMaps ?? []).map(m =>
+          m.id === action.payload.mapId
+            ? { ...m, markers: m.markers.map(mk => mk.id === action.payload.marker.id ? action.payload.marker : mk) }
+            : m
+        ),
+      };
+
+    case 'DELETE_MARKER':
+      return {
+        ...state,
+        worldMaps: (state.worldMaps ?? []).map(m =>
+          m.id === action.payload.mapId ? { ...m, markers: m.markers.filter(mk => mk.id !== action.payload.markerId) } : m
+        ),
+      };
 
     default:
       return state;
