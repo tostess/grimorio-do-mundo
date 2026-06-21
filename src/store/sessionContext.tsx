@@ -1,5 +1,6 @@
 import {
-  createContext, useContext, useReducer, useRef, useCallback, useEffect, type ReactNode,
+  createContext, useContext, useReducer, useRef, useCallback, useEffect, useState,
+  type ReactNode,
 } from 'react';
 import type {
   SessionState, SessionRole, PeerInfo, SessionSnapshot, LogEntry,
@@ -10,6 +11,8 @@ import { SessionHost } from '../net/SessionHost';
 import { SessionGuest } from '../net/SessionGuest';
 import { generateShortCode } from '../net/qr';
 import { INITIAL_SESSION_STATE } from '../types/session';
+import { audioManager, type PlayOptions } from '../utils/audio';
+import { addAudioDB, type AudioMeta } from '../utils/audioStorage';
 
 // ── Dice parser ───────────────────────────────────────────────────────────────
 
@@ -41,6 +44,17 @@ export function parseDiceRoll(notation: string): DiceResult | null {
   return { notation: notation.trim().toLowerCase(), rolls, modifier, total, breakdown };
 }
 
+// ── Base64 helper (guest-side: reconstruct ArrayBuffer from chunks) ──────────
+
+function base64ToArrayBuffer(base64: string): ArrayBuffer {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes.buffer;
+}
+
 // ── Reducer ───────────────────────────────────────────────────────────────────
 
 type SessionAction =
@@ -55,6 +69,8 @@ type SessionAction =
   | { type: 'SET_COMBAT'; combat: CombatState }
   | { type: 'UPDATE_ENTRY'; entryId: string; patch: Partial<InitiativeEntry> }
   | { type: 'ADVANCE_TURN'; currentTurnIndex: number; round: number }
+  | { type: 'SET_AUDIO_TRACK'; trackId: string; state: { playing: boolean; volume: number; loop: boolean } }
+  | { type: 'CLEAR_AUDIO_TRACK'; trackId: string }
   | { type: 'RESET' };
 
 function sessionReducer(state: SessionState, action: SessionAction): SessionState {
@@ -137,6 +153,16 @@ function sessionReducer(state: SessionState, action: SessionAction): SessionStat
     }
     case 'ADVANCE_TURN':
       return { ...state, combat: { ...state.combat, currentTurnIndex: action.currentTurnIndex, round: action.round } };
+    case 'SET_AUDIO_TRACK':
+      return {
+        ...state,
+        audioState: { active: { ...state.audioState.active, [action.trackId]: action.state } },
+      };
+    case 'CLEAR_AUDIO_TRACK': {
+      const active = { ...state.audioState.active };
+      delete active[action.trackId];
+      return { ...state, audioState: { active } };
+    }
     case 'RESET':
       return INITIAL_SESSION_STATE;
     default:
@@ -148,6 +174,10 @@ function sessionReducer(state: SessionState, action: SessionAction): SessionStat
 
 interface SessionContextType {
   session: SessionState;
+  // Incrementa quando um asset de áudio é recebido via push (guest) — trigger para re-fetch do IDB
+  audioAssetsVersion: number;
+  // Progresso de transferência de assets: assetId → peerId → fração (0–1)
+  audioTransferProgress: Record<string, Record<string, number>>;
   openSession: () => string;
   joinSession: (hostId: string, playerName: string) => void;
   closeSession: () => void;
@@ -161,16 +191,36 @@ interface SessionContextType {
   applyHp: (entryId: string, hp: number) => void;
   applyConditions: (entryId: string, conditions: string[]) => void;
   assignCharacter: (peerId: string, characterId: string | null, character: AssignedCharacter | null) => void;
+  // Audio
+  playAudioTrack: (trackId: string, options?: PlayOptions) => Promise<void>;
+  stopAudioTrack: (trackId: string) => void;
+  setAudioVolume: (trackId: string, volume: number) => void;
+  crossfadeAudio: (fromId: string, toId: string, durationMs: number, toOptions?: PlayOptions) => Promise<void>;
+  pushAudioAsset: (assetId: string, meta: { label: string; kind: 'ambient' | 'sfx'; mime: string }, buffer: ArrayBuffer, peerIds?: string[]) => Promise<void>;
+  unlockAudio: () => void;
 }
 
 const SessionContext = createContext<SessionContextType | null>(null);
 
+// Pending transfer state para guest reconstruir chunks antes de gravar no IDB
+interface PendingTransfer {
+  label: string;
+  kind: 'ambient' | 'sfx';
+  mime: string;
+  chunks: Map<number, string>;
+  totalChunks: number;
+  totalBytes: number;
+}
+
 export function SessionProvider({ children }: { children: ReactNode }) {
   const [session, dispatch] = useReducer(sessionReducer, INITIAL_SESSION_STATE);
+  const [audioAssetsVersion, setAudioAssetsVersion] = useState(0);
+  const [audioTransferProgress, setAudioTransferProgress] = useState<Record<string, Record<string, number>>>({});
   const hostRef = useRef<SessionHost | null>(null);
   const guestRef = useRef<SessionGuest | null>(null);
   const sessionRef = useRef(session);
   sessionRef.current = session;
+  const pendingTransfersRef = useRef<Map<string, PendingTransfer>>(new Map());
 
   const _addLog = useCallback((
     peerId: string,
@@ -214,7 +264,6 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       emptySnapshot,
       peers => dispatch({ type: 'SET_PEERS', peers }),
       (from, msg) => {
-        // Relay broadcast-worthy messages to all other guests
         if (msg.type === 'DICE_ROLL' || msg.type === 'CHAT_MESSAGE') {
           hostRef.current?.broadcast(msg, from);
           _addLog(
@@ -225,6 +274,17 @@ export function SessionProvider({ children }: { children: ReactNode }) {
               ? `${msg.playerName} rolou ${msg.notation}: ${msg.total} (${msg.breakdown})`
               : `${msg.playerName}: ${msg.text}`,
           );
+        }
+        // ACK de transferência de asset — atualiza progresso host-side
+        if (msg.type === 'AUDIO_ASSET_ACK') {
+          setAudioTransferProgress(prev => {
+            const assetProgress = prev[msg.assetId];
+            if (!assetProgress) return prev;
+            return {
+              ...prev,
+              [msg.assetId]: { ...assetProgress, [from]: 1 },
+            };
+          });
         }
       },
     );
@@ -247,6 +307,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       onAccepted: snapshot => {
         dispatch({ type: 'APPLY_SNAPSHOT', snapshot });
         _addLog('system', 'Sistema', 'system', `Conectado à sessão do mestre.`);
+        // Carrega cache de metadados do IDB para o AudioManager
+        audioManager.refreshMeta().catch(() => { /* non-fatal */ });
       },
       onRejected: reason => {
         const msg = reason === 'full' ? 'Sessão lotada (máx. 6 jogadores).' : `Rejeitado: ${reason}`;
@@ -295,10 +357,89 @@ export function SessionProvider({ children }: { children: ReactNode }) {
           dispatch({ type: 'UPDATE_ENTRY', entryId: msg.targetId, patch: { hp: msg.hp } });
         } else if (msg.type === 'CONDITION_CHANGE') {
           dispatch({ type: 'UPDATE_ENTRY', entryId: msg.targetId, patch: { conditions: msg.conditions } });
+        } else if (msg.type === 'AUDIO_CUE') {
+          // EXPERIMENTAL: áudio nos guests pode falhar silenciosamente
+          void (async () => {
+            try {
+              if (msg.action === 'play') {
+                await audioManager.play(msg.trackId, {
+                  sources: msg.sources,
+                  loop: msg.loop ?? true,
+                  volume: msg.volume ?? 0.8,
+                });
+                dispatch({
+                  type: 'SET_AUDIO_TRACK',
+                  trackId: msg.trackId,
+                  state: { playing: true, volume: msg.volume ?? 0.8, loop: msg.loop ?? true },
+                });
+              } else if (msg.action === 'stop') {
+                audioManager.stop(msg.trackId);
+                dispatch({ type: 'CLEAR_AUDIO_TRACK', trackId: msg.trackId });
+              } else if (msg.action === 'volume') {
+                audioManager.setVolume(msg.trackId, msg.volume ?? 0.8);
+              }
+            } catch {
+              // falha silenciosa — não interrompe a sessão do guest
+            }
+          })();
+        } else if (msg.type === 'AUDIO_ASSET_BEGIN') {
+          pendingTransfersRef.current.set(msg.assetId, {
+            label: msg.label,
+            kind: msg.kind,
+            mime: msg.mime,
+            chunks: new Map(),
+            totalChunks: msg.totalChunks,
+            totalBytes: msg.totalBytes,
+          });
+        } else if (msg.type === 'AUDIO_ASSET_CHUNK') {
+          const transfer = pendingTransfersRef.current.get(msg.assetId);
+          if (transfer) transfer.chunks.set(msg.index, msg.data);
+        } else if (msg.type === 'AUDIO_ASSET_END') {
+          void (async () => {
+            const transfer = pendingTransfersRef.current.get(msg.assetId);
+            if (!transfer) return;
+
+            // Monta ArrayBuffer a partir dos chunks base64
+            const parts: ArrayBuffer[] = [];
+            for (let i = 0; i < transfer.totalChunks; i++) {
+              const chunk = transfer.chunks.get(i);
+              if (chunk) parts.push(base64ToArrayBuffer(chunk));
+            }
+            const totalLen = parts.reduce((acc, p) => acc + p.byteLength, 0);
+            const result = new Uint8Array(totalLen);
+            let offset = 0;
+            for (const part of parts) {
+              result.set(new Uint8Array(part), offset);
+              offset += part.byteLength;
+            }
+
+            const meta: AudioMeta = {
+              id: msg.assetId,
+              label: transfer.label,
+              kind: transfer.kind,
+              mime: transfer.mime,
+              origin: 'received',
+              createdAt: new Date().toISOString(),
+            };
+
+            try {
+              await addAudioDB(meta, result.buffer);
+              await audioManager.refreshMeta();
+              setAudioAssetsVersion(v => v + 1);
+              _addLog('system', 'Sistema', 'system', `Faixa de áudio recebida: ${transfer.label}`);
+            } catch (err) {
+              console.warn('[Audio] failed to store received asset:', err);
+            }
+
+            pendingTransfersRef.current.delete(msg.assetId);
+            // Confirma recebimento ao host
+            guestRef.current?.send({ type: 'AUDIO_ASSET_ACK', assetId: msg.assetId, received: transfer.totalChunks });
+          })();
         }
       },
       onDisconnect: () => {
         _addLog('system', 'Sistema', 'system', 'Desconectado do mestre.');
+        audioManager.stopAll();
         dispatch({ type: 'RESET' });
       },
     });
@@ -307,6 +448,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, [_addLog]);
 
   const closeSession = useCallback(() => {
+    audioManager.stopAll();
     hostRef.current?.destroy();
     guestRef.current?.destroy();
     hostRef.current = null;
@@ -343,11 +485,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     const logText = `${playerName} rolou ${result.notation}: **${result.total}** (${result.breakdown})`;
 
     if (cur.role === 'host') {
-      // Host adds to own log and broadcasts to all guests
       _addLog(peerId, playerName, 'dice', logText);
       hostRef.current?.broadcast(msg);
     } else if (cur.role === 'guest') {
-      // Guest adds to own log immediately (optimistic) and sends to host
       _addLog(peerId, playerName, 'dice', logText);
       guestRef.current?.send(msg);
     }
@@ -444,10 +584,112 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     );
   }, [_addLog, _getSnapshot]);
 
-  // Cleanup on unmount (React StrictMode: both effects run, second cleanup calls destroy on the
-  // already-destroyed peer — PeerJS handles this gracefully)
+  // ── Audio helpers ───────────────────────────────────────────────────────────
+
+  const playAudioTrack = useCallback(async (trackId: string, options: PlayOptions = {}): Promise<void> => {
+    try {
+      await audioManager.play(trackId, options);
+    } catch (err) {
+      console.warn('[Audio] play failed:', err);
+      return;
+    }
+    const vol = options.volume ?? 0.8;
+    const loop = options.loop ?? true;
+    dispatch({ type: 'SET_AUDIO_TRACK', trackId, state: { playing: true, volume: vol, loop } });
+    const cue: SessionMessage = {
+      type: 'AUDIO_CUE', trackId, action: 'play', volume: vol, loop, sources: options.sources,
+    };
+    hostRef.current?.broadcast(cue);
+    const snapshot = _getSnapshot();
+    snapshot.audioState.active[trackId] = { playing: true, volume: vol, loop };
+    hostRef.current?.updateSnapshot(snapshot);
+  }, [_getSnapshot]);
+
+  const stopAudioTrack = useCallback((trackId: string): void => {
+    audioManager.stop(trackId);
+    dispatch({ type: 'CLEAR_AUDIO_TRACK', trackId });
+    hostRef.current?.broadcast({ type: 'AUDIO_CUE', trackId, action: 'stop' });
+    const snapshot = _getSnapshot();
+    delete snapshot.audioState.active[trackId];
+    hostRef.current?.updateSnapshot(snapshot);
+  }, [_getSnapshot]);
+
+  const setAudioVolume = useCallback((trackId: string, volume: number): void => {
+    audioManager.setVolume(trackId, volume);
+    dispatch({ type: 'SET_AUDIO_TRACK', trackId, state: { playing: true, volume, loop: true } });
+    hostRef.current?.broadcast({ type: 'AUDIO_CUE', trackId, action: 'volume', volume });
+  }, []);
+
+  const crossfadeAudio = useCallback(async (
+    fromId: string,
+    toId: string,
+    durationMs: number,
+    toOptions: PlayOptions = {},
+  ): Promise<void> => {
+    try {
+      await audioManager.crossfade(fromId, toId, durationMs, toOptions);
+    } catch (err) {
+      console.warn('[Audio] crossfade failed:', err);
+      return;
+    }
+    const vol = toOptions.volume ?? 0.8;
+    const loop = toOptions.loop ?? true;
+    dispatch({ type: 'CLEAR_AUDIO_TRACK', trackId: fromId });
+    dispatch({ type: 'SET_AUDIO_TRACK', trackId: toId, state: { playing: true, volume: vol, loop } });
+    hostRef.current?.broadcast({ type: 'AUDIO_CUE', trackId: fromId, action: 'stop' });
+    hostRef.current?.broadcast({ type: 'AUDIO_CUE', trackId: toId, action: 'play', volume: vol, loop, sources: toOptions.sources });
+    const snapshot = _getSnapshot();
+    delete snapshot.audioState.active[fromId];
+    snapshot.audioState.active[toId] = { playing: true, volume: vol, loop };
+    hostRef.current?.updateSnapshot(snapshot);
+  }, [_getSnapshot]);
+
+  const pushAudioAsset = useCallback(async (
+    assetId: string,
+    meta: { label: string; kind: 'ambient' | 'sfx'; mime: string },
+    buffer: ArrayBuffer,
+    peerIds?: string[],
+  ): Promise<void> => {
+    if (!hostRef.current) return;
+    const targets = peerIds ?? sessionRef.current.peers.filter(p => p.connected).map(p => p.peerId);
+    if (targets.length === 0) return;
+
+    // Inicializa progresso
+    const initial: Record<string, number> = {};
+    for (const pid of targets) initial[pid] = 0;
+    setAudioTransferProgress(prev => ({ ...prev, [assetId]: initial }));
+
+    await hostRef.current.pushAudioAsset(
+      assetId,
+      meta,
+      buffer,
+      (peerId, sent, total) => {
+        setAudioTransferProgress(prev => ({
+          ...prev,
+          [assetId]: { ...(prev[assetId] ?? {}), [peerId]: sent / total },
+        }));
+      },
+      targets,
+    );
+
+    // Limpa progresso após 3 s
+    setTimeout(() => {
+      setAudioTransferProgress(prev => {
+        const next = { ...prev };
+        delete next[assetId];
+        return next;
+      });
+    }, 3000);
+  }, []);
+
+  const unlockAudio = useCallback((): void => {
+    audioManager.unlock();
+  }, []);
+
+  // Cleanup on unmount
   useEffect(() => {
     return () => {
+      audioManager.stopAll();
       hostRef.current?.destroy();
       guestRef.current?.destroy();
     };
@@ -455,8 +697,27 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   return (
     <SessionContext.Provider value={{
-      session, openSession, joinSession, closeSession, sendMessage, broadcastFromHost, rollDice,
-      startCombat, endCombat, advanceTurn, applyHp, applyConditions, assignCharacter,
+      session,
+      audioAssetsVersion,
+      audioTransferProgress,
+      openSession,
+      joinSession,
+      closeSession,
+      sendMessage,
+      broadcastFromHost,
+      rollDice,
+      startCombat,
+      endCombat,
+      advanceTurn,
+      applyHp,
+      applyConditions,
+      assignCharacter,
+      playAudioTrack,
+      stopAudioTrack,
+      setAudioVolume,
+      crossfadeAudio,
+      pushAudioAsset,
+      unlockAudio,
     }}>
       {children}
     </SessionContext.Provider>

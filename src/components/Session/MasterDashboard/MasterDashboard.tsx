@@ -8,6 +8,7 @@ import type { AssignedCharacter, InitiativeEntry } from '../../../types/session'
 import type { Character, Condition5e } from '../../../types/character';
 import { CONDITIONS, CONDITION_LABELS } from '../../../types/character';
 import type { SessionMessage } from '../../../net/protocol';
+import { AudioMixer } from '../AudioMixer/AudioMixer';
 import styles from './MasterDashboard.module.css';
 
 function initials(name: string): string {
@@ -659,7 +660,7 @@ function InitiativeTracker({
 
 // ── Connection Bar ────────────────────────────────────────────────────────────
 
-function ConnectionBar({ onClose }: { onClose: () => void }) {
+function ConnectionBar({ onClose, showAudio, onToggleAudio }: { onClose: () => void; showAudio: boolean; onToggleAudio: () => void }) {
   const { session } = useSessionStore();
   const [qrUrl, setQrUrl] = useState('');
   const [showQr, setShowQr] = useState(false);
@@ -696,6 +697,13 @@ function ConnectionBar({ onClose }: { onClose: () => void }) {
       <button className="btn btn-sm" onClick={() => setShowQr(s => !s)}>QR</button>
       <div className={styles.barSpacer} />
       <span className={styles.peerCountBar}>{session.peers.length}/6 jogadores</span>
+      <button
+        className={`btn btn-sm ${showAudio ? styles.btnAudioActive : ''}`}
+        onClick={onToggleAudio}
+        title="Mesa de Som"
+      >
+        🎵
+      </button>
       <button className="btn btn-sm btn-danger" onClick={onClose}>Encerrar Sessão</button>
 
       {showQr && (
@@ -720,6 +728,7 @@ export function MasterDashboard({ onClose }: { onClose: () => void }) {
   const { session, endCombat } = useSessionStore();
   const [characters, setCharacters] = useState<Character[]>([]);
   const [avatars, setAvatars] = useState<AvatarEntry[]>([]);
+  const [showAudio, setShowAudio] = useState(false);
 
   useEffect(() => {
     if (!activeWorldId) return;
@@ -749,7 +758,8 @@ export function MasterDashboard({ onClose }: { onClose: () => void }) {
 
   return (
     <div className={styles.dashboard}>
-      <ConnectionBar onClose={onClose} />
+      <ConnectionBar onClose={onClose} showAudio={showAudio} onToggleAudio={() => setShowAudio(s => !s)} />
+      {showAudio && <AudioMixer />}
       <div className={styles.panels}>
         <PeersPanel characters={characters} avatars={avatars} />
         <InitiativeTracker characters={characters} avatars={avatars} onEndCombat={handleEndCombat} />

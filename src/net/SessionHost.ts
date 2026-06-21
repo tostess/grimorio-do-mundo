@@ -3,6 +3,16 @@ import type { PeerInfo, SessionSnapshot } from '../types/session';
 import type { SessionMessage } from './protocol';
 
 const MAX_PEERS = 6;
+const CHUNK_SIZE = 64 * 1024; // 64 KB por chunk
+
+function _toBase64Chunk(buffer: ArrayBuffer, start: number, end: number): string {
+  const bytes = new Uint8Array(buffer, start, end - start);
+  let binary = '';
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
+}
 
 export class SessionHost {
   private peer: Peer;
@@ -98,6 +108,47 @@ export class SessionHost {
   syncAll() {
     const snapshot = this._currentSnapshot();
     this.broadcast({ type: 'STATE_SYNC', snapshot } satisfies SessionMessage);
+  }
+
+  // Distribui um asset de áudio para os peers via chunking base64 (~64 KB / chunk).
+  // onProgress é chamada após cada chunk enviado para um peer (sent / total).
+  async pushAudioAsset(
+    assetId: string,
+    meta: { label: string; kind: 'ambient' | 'sfx'; mime: string },
+    buffer: ArrayBuffer,
+    onProgress: (peerId: string, sent: number, total: number) => void,
+    peerIds?: string[],
+  ): Promise<void> {
+    const totalBytes = buffer.byteLength;
+    const totalChunks = Math.max(1, Math.ceil(totalBytes / CHUNK_SIZE));
+    const targets = peerIds ?? [...this.connections.keys()];
+
+    for (const peerId of targets) {
+      const conn = this.connections.get(peerId);
+      if (!conn?.open) continue;
+
+      conn.send({
+        type: 'AUDIO_ASSET_BEGIN',
+        assetId,
+        label: meta.label,
+        kind: meta.kind,
+        mime: meta.mime,
+        totalBytes,
+        totalChunks,
+      } satisfies SessionMessage);
+
+      for (let i = 0; i < totalChunks; i++) {
+        const start = i * CHUNK_SIZE;
+        const end = Math.min(start + CHUNK_SIZE, totalBytes);
+        const data = _toBase64Chunk(buffer, start, end);
+        conn.send({ type: 'AUDIO_ASSET_CHUNK', assetId, index: i, data } satisfies SessionMessage);
+        onProgress(peerId, i + 1, totalChunks);
+        // yield ao event loop para não saturar o data channel
+        await new Promise(r => setTimeout(r, 4));
+      }
+
+      conn.send({ type: 'AUDIO_ASSET_END', assetId } satisfies SessionMessage);
+    }
   }
 
   private _currentSnapshot(): SessionSnapshot {

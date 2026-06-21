@@ -284,17 +284,39 @@ CharacterList (state: characters[], selectedId, subView)
 - [x] `MasterDashboard`: cards de jogadores refinados para avatar, nome, ficha vinculada, HP e CA respirarem melhor no painel do mestre; layout evita truncamento agressivo em nomes longos.
 - [x] Validação: `npm run build` passou após o polimento (21/06/2026).
 
-### Fase 8 — Áudio & Ambientação (PRÓXIMA — iniciar em novo chat)
+### ✅ Fase 8 — Áudio & Ambientação — CONCLUÍDA (21/06/2026)
 
 **Depende da Fase 5 para `AUDIO_CUE` broadcast. Funciona offline (só mestre) mesmo sem sessão ativa.**
 
-- [ ] Instalar `howler` como dependência de produção (ver exceção em Convenções de Código)
-- [ ] `src/utils/audio.ts` — `AudioManager` singleton sobre Howler: `play(trackId)`, `stop(trackId)`, `loop(trackId, volume)`, `stopAll()`, `setVolume(trackId, vol)`, `crossfade(fromId, toId, durationMs)`
-- [ ] Assets de áudio: caminho principal é import via upload → IndexedDB (`grimorio-audio`). `public/audio/` fica vazio por padrão; incluir faixas bundled **somente** se houver arquivos CC0/CC-BY confirmados; o app funciona 100% sem assets pré-carregados
-- [ ] `src/components/Session/AudioMixer/` — painel do mestre: lista de faixas com play/pause, slider de volume, loop/one-shot, crossfade entre ambientes; seção separada para SFX
-- [ ] Import de áudio: campo de upload; `ArrayBuffer` armazenado no IndexedDB (store `grimorio-audio`); aparece na lista abaixo das faixas bundled
-- [ ] `AUDIO_CUE` broadcast: quando mestre clica play/stop, envia cue para guests; **marcado EXPERIMENTAL** — autoplay bloqueado por browsers sem interação prévia; jogadores veem banner "🔊 Clique para habilitar áudio" na primeira conexão
-- [ ] `SessionState.audioState`: `{ active: Record<trackId, { playing, volume, loop }> }` — mestre é fonte da verdade; guests sincronizam via `STATE_SYNC`
+**Modelo de áudio implementado: Jeito 1 + Opção A** — o mestre envia cue leve (`AUDIO_CUE`) e, opcionalmente, o asset completo uma vez via chunking base64 (`AUDIO_ASSET_BEGIN/CHUNK/END`). Cada device toca seu arquivo local após recebê-lo. Streaming contínuo é **Fase 8.5 futura** (veja item no Roadmap).
+
+- [x] Instalar `howler` como dependência de produção
+- [x] `src/utils/audio.ts` — `AudioManager` singleton sobre Howler: `play(trackId, options)`, `stop(trackId)`, `stopAll()`, `setVolume(trackId, vol)`, `crossfade(fromId, toId, durationMs, options)`, `unlock()` (WAV silencioso para destravar AudioContext), `refreshMeta()` (recarrega cache de metadados do IDB), `isPlaying(trackId)`
+- [x] `src/utils/audioStorage.ts` — IndexedDB `grimorio-audio` com dois stores (`meta` + `data`): `addAudioDB(meta, buffer)`, `listAudioDB()` (retorna apenas metadados, sem carregar blobs), `getAudioBufferDB(id)`, `deleteAudioDB(id)`. Mestre e guest usam o mesmo store. Metadados: `id, label, kind, mime, durationSec?, origin ('imported'|'received'), createdAt`
+- [x] `src/data/audioManifest.ts` — manifesto de faixas bundled com campos de licença obrigatórios (`license`, `attribution`, `sourceUrl`). Bundle vazio até haver arquivos CC0/CC-BY confirmados
+- [x] `public/audio/.gitkeep` e `public/audio/CREDITS.md` — diretório criado, cabeçalho de atribuições pronto
+- [x] `SessionState.audioState` já existia (`{ active: Record<trackId, { playing, volume, loop }> }`); novos actions no reducer: `SET_AUDIO_TRACK`, `CLEAR_AUDIO_TRACK`
+- [x] `src/net/protocol.ts` — `AUDIO_CUE` ampliado para `action: 'play'|'stop'|'volume'` + `sources?: string[]` (URLs de faixas bundled para guests resolverem sem IDB); novas mensagens de distribuição: `AUDIO_ASSET_BEGIN`, `AUDIO_ASSET_CHUNK`, `AUDIO_ASSET_END`, `AUDIO_ASSET_ACK`
+- [x] `src/net/SessionHost.ts` — `pushAudioAsset(assetId, meta, buffer, onProgress, peerIds?)`: fragmenta ArrayBuffer em chunks ~64 KB (base64), envia `BEGIN/CHUNK*/END` por peer com `await setTimeout(4ms)` entre chunks para não saturar o data channel; progress callback por peer
+- [x] `src/store/sessionContext.tsx` — funções expostas: `playAudioTrack`, `stopAudioTrack`, `setAudioVolume`, `crossfadeAudio`, `pushAudioAsset`, `unlockAudio`; estados expostos: `audioAssetsVersion` (incrementa quando guest recebe asset, trigger para re-fetch IDB), `audioTransferProgress` (assetId → peerId → fração 0-1); `pendingTransfersRef` (Map) acumula chunks no guest antes de gravar no IDB; `onMessage` lida com todos os novos tipos de mensagem de áudio via `void async`
+- [x] `src/components/Session/AudioMixer/` — painel do mestre (toggle via botão 🎵 na ConnectionBar): seção Ambiência (loops com crossfade automático ao trocar) + seção SFX (one-shot); import de arquivo (.ogg/.mp3/.wav/.webm) → `addAudioDB`; barra de progresso por jogador durante envio (`pushAudioAsset`); slider de volume inline na faixa ativa; botão 📤 "Enviar para a mesa" (IDB apenas, não bundled); remoção de faixas importadas
+- [x] `src/components/Session/SessionGuestShell/` — banner "🔊 Clique para habilitar áudio" na primeira conexão → `unlockAudio()` → dispensa-se com botão ✕
+- [x] Cleanup: `stopAll()` chamado em `closeSession()` e `onDisconnect()` do guest; `refreshMeta()` chamado em `onAccepted` (guest)
+- [x] Build verificado: `npm run build` passou (21/06/2026)
+
+**Desvios do design original:**
+- `loop(trackId, volume)` não virou método separado; `loop` é opção de `play(trackId, { loop })` — mais coeso
+- Progress de transferência calculado pelo host (chunks enviados / total) em vez de aguardar ACK — mais simples; `AUDIO_ASSET_ACK` ainda é enviado pelo guest como confirmação de fim de recebimento e para marcar o peer como 100% no progresso do host
+- `AudioMixer` renderiza como painel toggle acima dos 3 painéis do dashboard (não como 4º painel lateral) — evita layout estreito em resoluções médias
+- Dois parsers de dado continuam coexistindo (não unificados nesta fase)
+
+### Fase 8.5 — Streaming de Áudio Contínuo (FUTURO — fora de escopo atual)
+
+> **Nota:** A Fase 8 implementou o modelo **Jeito 1 + Opção A** (cue leve + distribuição de asset uma vez). Streaming contínuo de áudio em tempo real (mestre toca → sinal de áudio flui P2P para guests) é tecnicamente mais complexo (WebRTC audio track vs data channel) e foi intencionalmente deixado para esta fase futura.
+
+- [ ] Explorar `RTCPeerConnection.addTrack()` para audio MediaStream (requer mudança na camada PeerJS)
+- [ ] Avaliar viabilidade de latência aceitável para ambientação (< 300 ms)
+- [ ] Manter `AUDIO_CUE` como fallback para guests offline ou com autoplay bloqueado
 
 ### Fase 9 — Mapa & Grid de Batalha (PENDENTE)
 
@@ -394,7 +416,7 @@ CharacterList (state: characters[], selectedId, subView)
 - Áudio de ambiente toca **no device do mestre** por padrão (sempre funciona).
 - Áudio nos devices dos jogadores é **EXPERIMENTAL**: autoplay é bloqueado por browsers sem interação prévia. Jogadores devem clicar "Habilitar Áudio" ao entrar na sessão.
 - `AUDIO_CUE` broadcast é fire-and-forget — falha silenciosa no guest não interrompe a sessão.
-- Faixas bundled ficam em `public/audio/` (< 5 MB total). Import do mestre fica no IndexedDB (`grimorio-audio`).
+- Faixas bundled ficam em `public/audio/`. Loops de ambiência bundled: **mono, OGG Vorbis ~96 kbps + fallback MP3**. Sem teto rígido de tamanho — manter bundle enxuto (alvo orientativo: ~3–4 loops + ~4–5 SFX). Import do mestre fica no IndexedDB (`grimorio-audio`).
 
 #### Entrada na Sessão — três caminhos
 1. **QR code** — câmera do jogador faz scan no dispositivo do mestre (caminho principal em presencial).
@@ -415,9 +437,10 @@ Os três caminhos convergem para o mesmo `JOIN_REQUEST` no protocolo.
 - O modo é determinado pelo `SessionState.role` (`'host'` vs `'guest'`). Ao entrar via QR/link/código, o role é `'guest'` automaticamente; ao abrir sessão, é `'host'`.
 - Offline (sem sessão ativa), o app sempre roda em modo mestre.
 
-#### Áudio — Política de Assets
+#### Áudio — Política de Assets (revisada na Fase 8)
 - Caminho principal: mestre importa arquivos via upload → `ArrayBuffer` em IndexedDB (`grimorio-audio`). Não há dependência de assets externos.
-- Kit inicial em `public/audio/`: **opcional**, incluído apenas se houver arquivos com licença Creative Commons (CC0/CC-BY). Sem licença livre confirmada, `public/audio/` fica vazio e o app funciona 100% via import.
+- Bundle (`public/audio/`): **opcional**, apenas arquivos CC0/CC-BY confirmados. Loops bundled: **mono, OGG Vorbis ~96 kbps + fallback MP3**. SFX: OGG + MP3, mono, ~96–128 kbps. **Sem teto rígido de tamanho** — alvo orientativo ~3–4 loops + ~4–5 SFX. Loops longos ou específicos entram por import → IndexedDB, nunca no bundle. Sem licença confirmada, `public/audio/` fica vazio e o app funciona 100% via import.
+- Assets importados pelo mestre podem ser distribuídos via **chunking base64** (~64 KB/chunk) pelo botão "📤 Enviar para a mesa" no `AudioMixer`.
 
 #### Signaling e Offline-First
 - O handshake inicial do WebRTC usa o broker público do PeerJS (`0.peerjs.com`). Requer internet apenas no momento da conexão (~5s). Após conectados, tráfego é P2P puro.
@@ -608,6 +631,7 @@ src/
     prompts.ts            — Os 400 prompts de worldbuilding
     eventIdeas.ts         — As 190 ideias de eventos
     defaultState.ts       — Estado inicial da aplicação (createDefaultState)
+    audioManifest.ts      — Manifesto de faixas bundled (CC0/CC-BY) com licença obrigatória (Fase 8)
     bestiary.ts           — (Fase 10) ~50 monstros SRD 5e com stat blocks
   net/                    — Camada de transporte P2P — separada de src/store/
     protocol.ts           — SessionMessage discriminated union (todas as mensagens)
@@ -626,7 +650,8 @@ src/
     storageDB.ts          — CRUD async por entidade (worlds, states, checkpoints, characters)
     dice.ts               — Parser de notação de dados: rollDice(), rollModifier() (Fase 6)
     avatarStorage.ts      — CRUD de avatares em IndexedDB grimorio-avatars (Fase 6)
-    audio.ts              — (Fase 8) AudioManager singleton sobre Howler
+    audio.ts              — AudioManager singleton sobre Howler: play, stop, crossfade, unlock, refreshMeta (Fase 8)
+    audioStorage.ts       — CRUD de áudio em IndexedDB grimorio-audio (meta + data stores) (Fase 8)
   components/
     Header/               — Cabeçalho com nome do mundo, botões de I/O, busca, mundos, histórico
     TabBar/               — Navegação entre abas
@@ -647,7 +672,7 @@ src/
       SessionLobby/       — Host: QR + link + código + peers + log + chat. Guest: form entrada. Offline: botão abrir sessão
       SessionGuestShell/  — Shell enxuto para guests: header status + aba Sessão
       MasterDashboard/    — (Fase 7) Painel do mestre: Peers, Iniciativa, Log
-      AudioMixer/         — (Fase 8) Mixer de áudio com faixas bundled + import
+      AudioMixer/         — Mixer: Ambiência (crossfade) + SFX + import IDB + distribuição P2P chunked (Fase 8)
       BattleMap/          — (Fase 9) Canvas Konva: grid, tokens, fog of war
       Bestiary/           — (Fase 10) Bestiário 5e pesquisável
       CombatReport/       — (Fase 10) Modal de fim de sessão → salvar como evento na Timeline
@@ -786,7 +811,7 @@ StrictMode
   - `peerjs` — WebRTC P2P (Fase 5): implementar ICE negotiation + signaling do zero seria inviável em manutenção. PeerJS encapsula isso com broker público; após handshake, é P2P puro.
   - `qrcode` — Geração de QR (Fase 5): UX em mesa presencial depende de scan rápido; URL de texto seria fallback, não opção principal.
   - `html5-qrcode` — Leitura de QR via câmera (Fase 5): `BarcodeDetector` API tem suporte inconsistente em mobile browsers.
-  - `howler` — Áudio (Fase 8): Web Audio nativa é suficiente para POC, mas Howler gerencia loops, crossfade e formatos MP3/OGG com muito menos código e bugs.
+  - `howler` — Áudio (Fase 8 — IMPLEMENTADO): Web Audio nativa é suficiente para POC, mas Howler gerencia loops, crossfade e formatos MP3/OGG com muito menos código e bugs.
   - `konva` + `react-konva` — Canvas (Fase 9): Canvas2D nativo não tem hit-testing de layers, pinch-zoom nem arraste fácil; fog of war por clipping layer exige gerenciamento que Konva resolve de forma robusta.
 - **CSS Modules**: cada componente tem seu `.module.css`.
 - **Tipos estritos**: sem `any`. Validar na borda (import, input do usuário).

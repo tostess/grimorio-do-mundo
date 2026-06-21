@@ -4,6 +4,30 @@ import { CONDITION_LABELS } from '../../../types/character';
 import { SessionLobby } from '../SessionLobby/SessionLobby';
 import styles from './SessionGuestShell.module.css';
 
+function AudioUnlockBanner() {
+  const { unlockAudio } = useSessionStore();
+  const [dismissed, setDismissed] = useState(false);
+  if (dismissed) return null;
+  return (
+    <div className={styles.audioBanner}>
+      <span>🔊 Clique para habilitar áudio de ambientação</span>
+      <button
+        className="btn btn-sm"
+        onClick={() => { unlockAudio(); setDismissed(true); }}
+      >
+        Habilitar Áudio
+      </button>
+      <button
+        className="btn btn-sm"
+        onClick={() => setDismissed(true)}
+        title="Fechar"
+      >
+        ✕
+      </button>
+    </div>
+  );
+}
+
 function initials(name: string): string {
   return name
     .split(/\s+/)
@@ -165,6 +189,7 @@ export function SessionGuestShell() {
         </button>
       </nav>
 
+      <AudioUnlockBanner />
       <main className={styles.main}>
         {activeTab === 'session' ? <SessionLobby /> : <GuestCharacterView />}
       </main>

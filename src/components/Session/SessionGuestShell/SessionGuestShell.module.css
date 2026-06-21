@@ -5,6 +5,18 @@
   flex-direction: column;
 }
 
+.audioBanner {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 1rem;
+  background: #1a1a12;
+  border-bottom: 1px solid #4a3a1a;
+  font-size: 0.8rem;
+  color: #c9a84c;
+  flex-wrap: wrap;
+}
+
 .header {
   display: flex;
   align-items: center;

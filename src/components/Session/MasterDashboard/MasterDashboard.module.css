@@ -86,6 +86,12 @@
 
 .barSpacer { flex: 1; }
 
+.btnAudioActive {
+  background: #2a1a3a;
+  color: #8b5aaa;
+  border-color: #6b3a8a;
+}
+
 .peerCountBar {
   font-size: 0.78rem;
   color: var(--text-muted);
