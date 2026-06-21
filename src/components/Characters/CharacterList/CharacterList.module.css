@@ -1,0 +1,320 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+/* ── Header ───────────────────────────────────────────────────────────────── */
+
+.header {
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+  padding: 1rem 1.5rem 0;
+  flex-shrink: 0;
+}
+
+.title {
+  font-size: 1.2rem;
+  color: var(--gold-light);
+  margin: 0 0 1rem 0;
+  letter-spacing: 0.03em;
+}
+
+.subTabs {
+  display: flex;
+  gap: 0;
+}
+
+.subTab {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-muted);
+  padding: 0.6rem 1.2rem;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-family: inherit;
+  transition: color var(--transition), border-color var(--transition);
+  margin-bottom: -1px;
+}
+
+.subTab:hover { color: var(--text); }
+.active { color: var(--gold-light) !important; border-bottom-color: var(--gold) !important; }
+
+/* ── Body ─────────────────────────────────────────────────────────────────── */
+
+.body {
+  flex: 1;
+  overflow-y: auto;
+}
+
+/* ── Char list ────────────────────────────────────────────────────────────── */
+
+.charList {
+  padding: 1.25rem;
+}
+
+.listToolbar {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.listCount {
+  flex: 1;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.createBtn {
+  background: var(--gold-dark);
+  color: var(--gold-light);
+  border: 1px solid var(--border-gold);
+  border-radius: 6px;
+  padding: 0.5rem 1.1rem;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-family: inherit;
+  transition: background var(--transition), color var(--transition);
+}
+
+.createBtn:hover {
+  background: var(--gold);
+  color: #000;
+}
+
+/* ── Empty / loading ──────────────────────────────────────────────────────── */
+
+.loading {
+  color: var(--text-dim);
+  font-style: italic;
+  padding: 2rem;
+  text-align: center;
+}
+
+.empty {
+  text-align: center;
+  padding: 4rem 2rem;
+  color: var(--text-muted);
+}
+
+.emptyIcon {
+  font-size: 3.5rem;
+  margin-bottom: 1rem;
+  opacity: 0.5;
+}
+
+.emptyTitle {
+  font-size: 1.1rem;
+  color: var(--text-dim);
+  margin-bottom: 0.4rem;
+}
+
+.emptyHint {
+  font-size: 0.875rem;
+  color: var(--text-dim);
+}
+
+/* ── Character grid ───────────────────────────────────────────────────────── */
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+/* ── Character card ───────────────────────────────────────────────────────── */
+
+.card {
+  background: var(--bg-card);
+  border: 2px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: border-color var(--transition), transform var(--transition), box-shadow var(--transition);
+  display: flex;
+  flex-direction: column;
+}
+
+.card:hover {
+  border-color: var(--gold-dark);
+  transform: translateY(-3px);
+  box-shadow: 0 8px 24px var(--shadow);
+}
+
+/* Avatar */
+
+.cardAvatarWrap {
+  position: relative;
+  aspect-ratio: 4/3;
+  background: var(--bg-panel);
+  overflow: hidden;
+}
+
+.cardAvatar {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform var(--transition);
+}
+
+.card:hover .cardAvatar { transform: scale(1.04); }
+
+.cardInitials {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2.5rem;
+  font-weight: bold;
+  color: var(--gold-dark);
+  background: var(--bg-panel);
+  letter-spacing: 0.05em;
+}
+
+.cardDelete {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1px solid rgba(192,64,64,0.7);
+  background: rgba(139,42,42,0.85);
+  color: #fff;
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity var(--transition);
+}
+
+.card:hover .cardDelete { opacity: 1; }
+.cardDelete:hover { background: var(--red-light); }
+
+/* Body */
+
+.cardBody {
+  padding: 0.7rem 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  flex: 1;
+}
+
+.cardName {
+  font-size: 1rem;
+  font-weight: bold;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cardSub {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cardLevel {
+  font-size: 0.75rem;
+  color: var(--gold-dark);
+}
+
+.cardPlayer {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+}
+
+/* HP bar */
+
+.cardHp {
+  margin-top: 0.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.cardHpText {
+  font-size: 0.75rem;
+  font-weight: bold;
+}
+
+.cardHpTrack {
+  height: 5px;
+  background: var(--bg);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.cardHpFill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+/* Conditions */
+
+.cardConditions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  margin-top: 2px;
+}
+
+.cardConditionBadge {
+  background: rgba(139,42,42,0.25);
+  border: 1px solid var(--red-light);
+  color: var(--red-light);
+  border-radius: 10px;
+  padding: 1px 6px;
+  font-size: 0.65rem;
+}
+
+/* Mods quick view */
+
+.cardMods {
+  display: flex;
+  gap: 0.4rem;
+  margin-top: 0.3rem;
+}
+
+.cardMod {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px 5px;
+  min-width: 36px;
+}
+
+.cardModVal {
+  font-size: 0.85rem;
+  font-weight: bold;
+  color: var(--gold-light);
+}
+
+.cardModLabel {
+  font-size: 0.6rem;
+  color: var(--text-dim);
+}
+
+/* ── Mobile ───────────────────────────────────────────────────────────────── */
+
+@media (max-width: 640px) {
+  .header { padding: 0.75rem 1rem 0; }
+  .title { font-size: 1rem; margin-bottom: 0.75rem; }
+  .subTab { padding: 0.5rem 0.9rem; font-size: 0.82rem; }
+  .charList { padding: 0.75rem; }
+  .grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 0.75rem; }
+}

@@ -1,0 +1,824 @@
+/* ── Sheet layout ─────────────────────────────────────────────────────────── */
+
+.sheet {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--bg);
+}
+
+/* ── Sheet header ─────────────────────────────────────────────────────────── */
+
+.sheetHeader {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 1.25rem;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+.backBtn {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  border-radius: 6px;
+  padding: 0.3rem 0.75rem;
+  cursor: pointer;
+  font-size: 0.82rem;
+  white-space: nowrap;
+  transition: border-color var(--transition), color var(--transition);
+}
+
+.backBtn:hover { border-color: var(--gold-dark); color: var(--gold-light); }
+
+.sheetIdentity {
+  flex: 1;
+  min-width: 0;
+}
+
+.sheetName {
+  display: block;
+  font-size: 1.1rem;
+  color: var(--gold-light);
+  font-weight: bold;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sheetSub {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.sheetHpBar {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+  min-width: 120px;
+}
+
+.sheetHpText { font-size: 0.85rem; font-weight: bold; }
+
+.sheetHpTrack {
+  width: 120px;
+  height: 6px;
+  background: var(--bg-card);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.sheetHpFill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+/* ── Dice strip ───────────────────────────────────────────────────────────── */
+
+.diceStrip {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1.25rem;
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+.diceInput {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 6px;
+  padding: 0.3rem 0.6rem;
+  font-size: 0.82rem;
+  width: 140px;
+  font-family: monospace;
+}
+
+.diceBtn {
+  background: var(--accent);
+  border: none;
+  color: #fff;
+  border-radius: 6px;
+  padding: 0.3rem 0.75rem;
+  cursor: pointer;
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+
+.diceBtn:hover { background: var(--accent-light); }
+
+.diceResult {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.82rem;
+}
+
+.diceResult strong { font-size: 1.2rem; color: var(--gold-light); }
+
+.diceBreakdown { color: var(--text-muted); font-family: monospace; font-size: 0.75rem; }
+
+/* ── Tab bar ──────────────────────────────────────────────────────────────── */
+
+.tabBar {
+  display: flex;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.tabBtn {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.6rem 1rem;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  transition: color var(--transition), border-color var(--transition);
+  margin-bottom: -1px;
+  font-family: inherit;
+}
+
+.tabBtn:hover { color: var(--text); }
+.tabActive { color: var(--gold-light) !important; border-bottom-color: var(--gold) !important; }
+.tabIcon { font-size: 1rem; }
+
+/* ── Tab content ──────────────────────────────────────────────────────────── */
+
+.tabContent {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.tabBody {
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  max-width: 900px;
+}
+
+/* ── Section ──────────────────────────────────────────────────────────────── */
+
+.section { display: flex; flex-direction: column; gap: 0.6rem; }
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.sectionTitle {
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--gold-dark);
+  margin: 0;
+}
+
+/* ── Fields ───────────────────────────────────────────────────────────────── */
+
+.field { display: flex; flex-direction: column; gap: 0.3rem; }
+
+.fieldLabel {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.fieldInput {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 6px;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.9rem;
+  font-family: inherit;
+  transition: border-color var(--transition);
+}
+
+.fieldInput:focus { outline: none; border-color: var(--gold-dark); }
+.fieldInput[readonly] { opacity: 0.6; cursor: not-allowed; }
+
+.fieldGrid4 {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.75rem;
+}
+
+.textarea {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 6px;
+  padding: 0.5rem 0.6rem;
+  font-size: 0.88rem;
+  font-family: inherit;
+  resize: vertical;
+  line-height: 1.5;
+}
+
+.textarea:focus { outline: none; border-color: var(--gold-dark); }
+
+.notesGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+/* ── Inspiration ──────────────────────────────────────────────────────────── */
+
+.inspirationRow { display: flex; align-items: center; gap: 0.5rem; }
+
+.checkLabel {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  cursor: pointer;
+  font-size: 0.88rem;
+  color: var(--text-muted);
+}
+
+.checkLabel:hover { color: var(--text); }
+
+/* ── Avatar picker ────────────────────────────────────────────────────────── */
+
+.basicTop {
+  display: flex;
+  gap: 1.25rem;
+  align-items: flex-start;
+}
+
+.basicNames { flex: 1; display: flex; flex-direction: column; gap: 0.6rem; }
+
+.avatarPicker { position: relative; flex-shrink: 0; }
+
+.avatarPreview {
+  width: 90px;
+  height: 120px;
+  background: var(--bg-card);
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: pointer;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color var(--transition);
+}
+
+.avatarPreview:hover { border-color: var(--gold-dark); }
+
+.avatarPreview:hover .avatarChangeHint { opacity: 1; }
+
+.avatarImg { width: 100%; height: 100%; object-fit: cover; }
+
+.avatarInitial { font-size: 2.5rem; opacity: 0.4; }
+
+.avatarChangeHint {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  background: rgba(0,0,0,0.6);
+  color: var(--gold-light);
+  font-size: 0.7rem;
+  text-align: center;
+  padding: 3px;
+  opacity: 0;
+  transition: opacity var(--transition);
+}
+
+.avatarDropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 50;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-gold);
+  border-radius: 8px;
+  padding: 0.5rem;
+  width: 220px;
+  box-shadow: 0 8px 24px var(--shadow);
+}
+
+.avatarGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.4rem;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.avatarOption {
+  aspect-ratio: 3/4;
+  background: var(--bg-card);
+  border: 2px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color var(--transition);
+}
+
+.avatarOption:hover { border-color: var(--gold-dark); }
+.avatarSelected { border-color: var(--gold) !important; }
+
+.avatarOption img { width: 100%; height: 100%; object-fit: cover; }
+
+.avatarRemove { font-size: 1.2rem; color: var(--red-light); }
+
+.avatarEmpty { font-size: 0.75rem; color: var(--text-dim); padding: 0.5rem; grid-column: 1/-1; }
+
+/* ── HP section ───────────────────────────────────────────────────────────── */
+
+.hpSection { display: flex; gap: 1rem; align-items: flex-start; flex-wrap: wrap; }
+
+.hpBlock { display: flex; flex-direction: column; gap: 0.4rem; min-width: 100px; }
+
+.hpInput { font-size: 1.5rem !important; text-align: center; font-weight: bold; }
+
+.hpBtns { display: flex; gap: 4px; flex-wrap: wrap; }
+
+.hpBtn {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  border-radius: 4px;
+  padding: 2px 6px;
+  cursor: pointer;
+  font-size: 0.78rem;
+  font-family: inherit;
+  transition: background var(--transition), color var(--transition);
+}
+
+.hpBtnDmg { border-color: rgba(139,42,42,0.5); color: var(--red-light); }
+.hpBtnDmg:hover { background: var(--red); color: #fff; }
+.hpBtnHeal { border-color: rgba(42,107,58,0.5); color: var(--green-light); }
+.hpBtnHeal:hover { background: var(--green); color: #fff; }
+
+/* ── Rollable field ───────────────────────────────────────────────────────── */
+
+.rollableField { display: flex; gap: 4px; align-items: center; }
+.rollableField .fieldInput, .rollableField .attackInput { flex: 1; }
+
+.rollBtn {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  border-radius: 4px;
+  padding: 3px 6px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  transition: border-color var(--transition), color var(--transition);
+}
+
+.rollBtn:hover { border-color: var(--gold-dark); color: var(--gold-light); }
+
+.rollBtnSm {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 0.75rem;
+  padding: 0 2px;
+  opacity: 0;
+  transition: opacity var(--transition);
+}
+
+.skillRow:hover .rollBtnSm,
+.saveRow:hover .rollBtnSm { opacity: 1; }
+
+/* ── Death saves ──────────────────────────────────────────────────────────── */
+
+.deathSaves { display: flex; flex-direction: column; gap: 0.4rem; }
+
+.dsRow {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.88rem;
+  color: var(--text-muted);
+}
+
+/* ── Conditions ───────────────────────────────────────────────────────────── */
+
+.conditionGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.conditionChip {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 0.2rem 0.65rem;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background var(--transition), border-color var(--transition), color var(--transition);
+}
+
+.conditionActive {
+  background: rgba(139,42,42,0.25);
+  border-color: var(--red-light);
+  color: var(--red-light);
+}
+
+.exhaustionRow {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.4rem;
+}
+
+.exhaustionRow .fieldLabel { white-space: nowrap; }
+.exhaustionRow .fieldInput { width: 70px; }
+
+/* ── Attacks ──────────────────────────────────────────────────────────────── */
+
+.attackTable { display: flex; flex-direction: column; gap: 0.4rem; }
+
+.attackHeader {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr 1fr 28px;
+  gap: 4px;
+  padding: 0 2px;
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.attackRow {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr 1fr 28px;
+  gap: 4px;
+  align-items: center;
+}
+
+.attackInput {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 4px;
+  padding: 0.3rem 0.4rem;
+  font-size: 0.82rem;
+  font-family: inherit;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.attackInput:focus { outline: none; border-color: var(--gold-dark); }
+
+.deleteBtn {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 1rem;
+  padding: 2px;
+  transition: color var(--transition);
+}
+
+.deleteBtn:hover { color: var(--red-light); }
+
+.addBtn {
+  background: none;
+  border: 1px solid var(--border-gold);
+  color: var(--gold-dark);
+  border-radius: 6px;
+  padding: 0.25rem 0.7rem;
+  cursor: pointer;
+  font-size: 0.78rem;
+  font-family: inherit;
+  transition: background var(--transition), color var(--transition);
+}
+
+.addBtn:hover { background: var(--gold-dark); color: var(--bg); }
+
+.empty { color: var(--text-dim); font-style: italic; font-size: 0.85rem; }
+
+/* ── Ability scores ───────────────────────────────────────────────────────── */
+
+.abilityRow {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.abilityBox {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.5rem 0.4rem;
+  min-width: 72px;
+  flex: 1;
+  gap: 3px;
+}
+
+.abilityLabel {
+  font-size: 0.7rem;
+  color: var(--gold-dark);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.abilityMod {
+  font-size: 1.3rem;
+  font-weight: bold;
+  color: var(--gold-light);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: background var(--transition);
+}
+
+.abilityMod:hover { background: var(--bg-hover); }
+
+.abilityScore {
+  width: 52px;
+  text-align: center;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 4px;
+  padding: 0.2rem;
+  font-size: 0.9rem;
+  font-family: inherit;
+}
+
+.abilityScore:focus { outline: none; border-color: var(--gold-dark); }
+
+.abilityName {
+  font-size: 0.62rem;
+  color: var(--text-dim);
+  text-align: center;
+}
+
+/* ── Saving throws ────────────────────────────────────────────────────────── */
+
+.saveGrid { display: flex; flex-direction: column; gap: 0.3rem; }
+
+.saveRow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.saveVal {
+  width: 30px;
+  text-align: right;
+  font-weight: bold;
+  color: var(--text);
+  font-size: 0.88rem;
+}
+
+/* ── Skills ───────────────────────────────────────────────────────────────── */
+
+.skillList { display: flex; flex-direction: column; gap: 0.25rem; }
+
+.skillRow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  padding: 2px 4px;
+  border-radius: 4px;
+  transition: background var(--transition);
+}
+
+.skillRow:hover { background: var(--bg-hover); }
+
+.skillMod {
+  width: 30px;
+  text-align: right;
+  font-weight: bold;
+  color: var(--text);
+  font-size: 0.88rem;
+}
+
+.skillName { flex: 1; }
+
+.skillAbility {
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  width: 28px;
+}
+
+/* ── Spells ───────────────────────────────────────────────────────────────── */
+
+.slotsGrid {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.slotBlock {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.25rem 0.5rem;
+}
+
+.slotLabel {
+  font-size: 0.7rem;
+  color: var(--gold-dark);
+  font-weight: bold;
+  min-width: 18px;
+}
+
+.slotInput {
+  width: 36px;
+  text-align: center;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 4px;
+  padding: 2px;
+  font-size: 0.82rem;
+  font-family: inherit;
+}
+
+.slotSep { color: var(--text-dim); font-size: 0.85rem; }
+
+.spellGroup { display: flex; flex-direction: column; gap: 0.3rem; }
+
+.spellGroupTitle {
+  font-size: 0.75rem;
+  color: var(--gold-dark);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: 0.5rem 0 0.2rem;
+}
+
+.spellRow {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.3rem 0.5rem;
+}
+
+.spellName {
+  flex: 2;
+  background: transparent;
+  border: none;
+  color: var(--text);
+  font-size: 0.88rem;
+  font-family: inherit;
+  padding: 0;
+}
+
+.spellName:focus { outline: none; }
+
+.spellSchool {
+  flex: 1;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  border-radius: 4px;
+  padding: 2px 4px;
+  font-size: 0.75rem;
+  font-family: inherit;
+}
+
+.spellCast {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-family: inherit;
+  padding: 0;
+}
+
+.spellCast:focus { outline: none; }
+
+.spellBadge {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+/* ── Resources ────────────────────────────────────────────────────────────── */
+
+.resourceList { display: flex; flex-direction: column; gap: 0.6rem; }
+
+.resourceCard {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+  flex-wrap: wrap;
+}
+
+.resourceName {
+  flex: 2;
+  min-width: 120px;
+  background: transparent;
+  border: none;
+  color: var(--text);
+  font-size: 0.95rem;
+  font-family: inherit;
+  font-weight: 500;
+}
+
+.resourceName:focus { outline: none; border-bottom: 1px solid var(--gold-dark); }
+
+.resourceControls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.resourceVal {
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: var(--gold-light);
+  min-width: 28px;
+  text-align: center;
+}
+
+.resourceMax {
+  width: 44px;
+  text-align: center;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 4px;
+  padding: 2px;
+  font-size: 0.88rem;
+  font-family: inherit;
+}
+
+.resourceRecharge {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  border-radius: 4px;
+  padding: 3px 6px;
+  font-size: 0.78rem;
+  font-family: inherit;
+}
+
+/* ── Mobile ───────────────────────────────────────────────────────────────── */
+
+@media (max-width: 640px) {
+  .fieldGrid4 { grid-template-columns: 1fr 1fr; }
+  .notesGrid { grid-template-columns: 1fr; }
+  .abilityRow { gap: 0.4rem; }
+  .abilityBox { min-width: 60px; padding: 0.4rem 0.3rem; }
+  .tabLabel { display: none; }
+  .tabBtn { padding: 0.6rem 0.7rem; }
+  .tabIcon { font-size: 1.1rem; }
+  .attackHeader, .attackRow { grid-template-columns: 2fr 1fr 1fr 28px; }
+  .attackHeader span:nth-child(4),
+  .attackHeader span:nth-child(5),
+  .attackRow > *:nth-child(4),
+  .attackRow > *:nth-child(5) { display: none; }
+  .hpSection { flex-direction: column; }
+  .basicTop { flex-direction: column; align-items: center; }
+  .sheetHeader { padding: 0.6rem 0.75rem; }
+  .tabBody { padding: 0.75rem; }
+  .diceStrip { padding: 0.4rem 0.75rem; }
+}

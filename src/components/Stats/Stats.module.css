@@ -1,0 +1,226 @@
+.container {
+  padding: 24px;
+  max-width: 960px;
+}
+
+.scoreCard {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 24px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-gold);
+  border-radius: var(--radius-lg);
+  margin-bottom: 24px;
+}
+
+.scoreCircle {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 3px solid var(--gold-dark);
+  background: var(--bg-card);
+  flex-shrink: 0;
+}
+
+.scoreNum {
+  font-size: 26px;
+  color: var(--gold);
+  font-weight: bold;
+  line-height: 1;
+}
+
+.scorePct {
+  font-size: 14px;
+  color: var(--gold-dark);
+}
+
+.scoreTitle {
+  font-size: 18px;
+  margin-bottom: 6px;
+}
+
+.scoreDesc {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.card {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  text-align: center;
+  transition: border-color 0.15s;
+}
+
+.card:hover {
+  border-color: var(--gold-dark);
+}
+
+.cardIcon {
+  font-size: 24px;
+  margin-bottom: 8px;
+}
+
+.cardValue {
+  font-size: 36px;
+  color: var(--gold);
+  font-weight: bold;
+  line-height: 1;
+  margin-bottom: 6px;
+}
+
+.cardLabel {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-family: 'Arial', sans-serif;
+}
+
+.panels {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.panel {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 18px;
+}
+
+.panelTitle {
+  font-size: 14px;
+  margin-bottom: 14px;
+  color: var(--gold);
+}
+
+.bars {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.barRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.barLabel {
+  font-size: 12px;
+  color: var(--text-muted);
+  min-width: 110px;
+  max-width: 110px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.barTrack {
+  flex: 1;
+  height: 6px;
+  background: var(--bg-card);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.barFill {
+  height: 100%;
+  background: var(--blue-light);
+  border-radius: 3px;
+  transition: width 0.4s ease;
+}
+
+.barCount {
+  font-size: 11px;
+  color: var(--text-dim);
+  min-width: 30px;
+  text-align: right;
+}
+
+.empty {
+  font-size: 12px;
+  color: var(--text-dim);
+  font-style: italic;
+}
+
+.promptProgress {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.promptBar {
+  height: 10px;
+  background: var(--bg-card);
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.promptFill {
+  height: 100%;
+  background: var(--gold);
+  border-radius: 5px;
+  transition: width 0.4s ease;
+}
+
+.promptText {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.catProgress {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+@media (max-width: 900px) {
+  .grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 700px) {
+  .container {
+    padding: 16px;
+  }
+
+  .scoreCard {
+    flex-direction: column;
+    text-align: center;
+    padding: 20px;
+    gap: 16px;
+  }
+
+  .panels {
+    grid-template-columns: 1fr;
+  }
+
+  .barLabel {
+    min-width: 90px;
+    max-width: 90px;
+  }
+}
+
+@media (max-width: 420px) {
+  .grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .cardValue {
+    font-size: 28px;
+  }
+}

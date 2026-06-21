@@ -1,0 +1,287 @@
+.shell {
+  min-height: 100vh;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1rem;
+  height: 52px;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border-gold);
+  flex-shrink: 0;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1rem;
+  color: var(--gold);
+  font-family: serif;
+}
+
+.brandName {
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.status {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.statusAvatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid var(--border-gold);
+  background: var(--bg-hover);
+  color: var(--gold);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  object-fit: cover;
+  overflow: hidden;
+  font-size: 0.7rem;
+  font-family: serif;
+  font-weight: 700;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--green-light);
+  box-shadow: 0 0 5px var(--green-light);
+}
+
+.tabBar {
+  display: flex;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+  padding: 0 0.5rem;
+  flex-shrink: 0;
+}
+
+.tab {
+  padding: 0.6rem 1rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: color var(--transition), border-color var(--transition);
+}
+.tab:hover { color: var(--text); }
+.tabActive {
+  color: var(--gold);
+  border-bottom-color: var(--gold);
+}
+
+.main {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.emptyState,
+.characterView {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 1rem;
+}
+
+.emptyState {
+  color: var(--text-muted);
+}
+
+.emptyState h2 {
+  margin: 0 0 0.5rem;
+  color: var(--gold);
+}
+
+.charHero {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-gold);
+  border-radius: 8px;
+}
+
+.portrait {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--bg-hover);
+  border: 2px solid var(--border-gold);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 1.3rem;
+  color: var(--gold);
+  font-family: serif;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.portraitImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.heroInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.charHero h2 {
+  margin: 0;
+  color: var(--gold);
+}
+
+.charHero p {
+  margin: 0.35rem 0 0;
+  color: var(--text-muted);
+}
+
+.hpBlock {
+  margin-left: auto;
+  flex-shrink: 0;
+  width: 150px;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid rgba(96, 190, 140, 0.35);
+  border-radius: 8px;
+  background: rgba(96, 190, 140, 0.08);
+}
+
+.hpText {
+  color: var(--green-light);
+  font-weight: 700;
+  font-size: 0.82rem;
+  margin-bottom: 0.35rem;
+  text-align: right;
+}
+
+.hpBar {
+  height: 7px;
+  background: var(--bg-card);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.hpBar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--green-light);
+  transition: width var(--transition);
+}
+
+.statGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin: 0.75rem 0;
+}
+
+.statGrid > div,
+.panel {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.statGrid > div {
+  padding: 0.85rem;
+}
+
+.statGrid span,
+.muted {
+  color: var(--text-muted);
+}
+
+.statGrid strong {
+  display: block;
+  margin-top: 0.25rem;
+  color: var(--text);
+  font-size: 1.25rem;
+}
+
+.panel {
+  padding: 1rem;
+  margin-top: 0.75rem;
+}
+
+.panel h3 {
+  margin: 0 0 0.75rem;
+  color: var(--gold);
+}
+
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.badges span {
+  padding: 0.2rem 0.5rem;
+  border: 1px solid var(--red-light);
+  border-radius: 999px;
+  color: var(--red-light);
+}
+
+.rows {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.row {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.55rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.row:last-child {
+  border-bottom: 0;
+}
+
+.row span {
+  color: var(--text-muted);
+  text-align: right;
+}
+
+@media (max-width: 640px) {
+  .charHero,
+  .row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .hpBlock {
+    margin-left: 0;
+    width: 100%;
+  }
+
+  .statGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .row span {
+    text-align: left;
+  }
+}

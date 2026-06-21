@@ -1,0 +1,147 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+  z-index: 200;
+  padding: 4rem 1rem 1rem;
+}
+
+.panel {
+  width: 100%;
+  max-width: 480px;
+  max-height: calc(100vh - 5rem);
+  background: var(--bg-panel);
+  border: 1px solid var(--border-gold);
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  overflow: hidden;
+  box-shadow: 0 8px 32px var(--shadow);
+  animation: slideIn 0.2s ease;
+}
+
+@keyframes slideIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.panelHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.panelTitle {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--gold);
+}
+
+.saveArea {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.75rem 1.25rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.labelInput {
+  flex: 1;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.4rem 0.6rem;
+  color: var(--text);
+  font-size: 0.85rem;
+  outline: none;
+  min-width: 0;
+}
+
+.labelInput:focus {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 2px rgba(201, 168, 76, 0.15);
+}
+
+.hint {
+  margin: 0;
+  padding: 0.4rem 1.25rem;
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  border-bottom: 1px solid var(--border);
+}
+
+.list {
+  overflow-y: auto;
+  flex: 1;
+  padding: 0.5rem 0;
+}
+
+.empty {
+  padding: 2rem 1.25rem;
+  color: var(--text-muted);
+  text-align: center;
+  font-style: italic;
+  font-size: 0.9rem;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 1.25rem;
+  transition: background var(--transition);
+}
+
+.item:hover {
+  background: var(--bg-hover);
+}
+
+.itemInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.itemLabel {
+  display: block;
+  font-size: 0.9rem;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.itemMeta {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 0.15rem;
+}
+
+.itemActions {
+  display: flex;
+  gap: 0.25rem;
+  flex-shrink: 0;
+}
+
+@media (max-width: 640px) {
+  .overlay {
+    padding: 0;
+    align-items: flex-end;
+  }
+
+  .panel {
+    max-width: 100%;
+    border-radius: 14px 14px 0 0;
+    max-height: 75vh;
+  }
+
+  .saveArea {
+    flex-direction: column;
+  }
+}

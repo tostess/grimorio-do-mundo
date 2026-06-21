@@ -1,0 +1,227 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.8);
+  z-index: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.modal {
+  background: var(--bg-panel);
+  border: 1px solid var(--border-gold);
+  border-radius: var(--radius-lg);
+  width: 100%;
+  max-width: 740px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 24px 80px var(--shadow);
+}
+
+.modalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.modalHeader h2 {
+  font-size: 16px;
+}
+
+.closeBtn {
+  color: var(--text-muted);
+  font-size: 16px;
+  padding: 4px 8px;
+  border-radius: var(--radius);
+  transition: color 0.15s, background 0.15s;
+}
+
+.closeBtn:hover {
+  color: var(--text);
+  background: var(--bg-hover);
+}
+
+.tabs {
+  display: flex;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--border);
+  gap: 2px;
+}
+
+.tabBtn {
+  padding: 8px 14px;
+  font-size: 12px;
+  color: var(--text-muted);
+  border-bottom: 2px solid transparent;
+  transition: color 0.15s, border-color 0.15s;
+  position: relative;
+  top: 1px;
+  white-space: nowrap;
+}
+
+.tabBtn:hover { color: var(--text); }
+
+.tabActive {
+  color: var(--gold);
+  border-bottom-color: var(--gold);
+}
+
+.body {
+  padding: 20px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.fullRow {
+  grid-column: 1 / -1;
+}
+
+.grid label {
+  display: block;
+  font-size: 11px;
+  font-family: 'Arial', sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+  margin-bottom: 4px;
+}
+
+.dateRow {
+  grid-column: 1 / -1;
+}
+
+.dateFields {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.dateFields input {
+  min-width: 0;
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  padding: 14px 20px;
+  border-top: 1px solid var(--border);
+  gap: 8px;
+}
+
+.hint {
+  font-size: 11px;
+  color: var(--text-dim);
+  font-family: 'Arial', sans-serif;
+  margin-top: 4px;
+}
+
+.tagInputWrapper {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  min-height: 38px;
+  align-items: center;
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+
+.tagInputWrapper:focus-within {
+  border-color: var(--gold-dark);
+  box-shadow: 0 0 0 2px rgba(201, 168, 76, 0.12);
+}
+
+.tagChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(107, 58, 138, 0.25);
+  border: 1px solid var(--accent);
+  color: var(--accent-light);
+  font-size: 11px;
+  padding: 2px 7px;
+  border-radius: 20px;
+  font-family: 'Arial', sans-serif;
+}
+
+.tagChip button {
+  color: var(--text-dim);
+  font-size: 9px;
+  line-height: 1;
+  padding: 0 2px;
+  transition: color var(--transition);
+}
+
+.tagChip button:hover {
+  color: var(--red-light);
+}
+
+.tagInputField {
+  flex: 1;
+  min-width: 120px;
+  border: none !important;
+  background: transparent !important;
+  padding: 2px 0 !important;
+  box-shadow: none !important;
+  font-size: 13px;
+}
+
+.masterNotesField {
+  font-family: 'Georgia', serif;
+  background: rgba(107, 58, 138, 0.05) !important;
+  border-color: rgba(107, 58, 138, 0.3) !important;
+}
+
+.masterNotesField:focus {
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 0 2px rgba(107, 58, 138, 0.15) !important;
+}
+
+@media (max-width: 600px) {
+  .overlay {
+    padding: 0;
+    align-items: flex-end;
+  }
+
+  .modal {
+    max-width: 100%;
+    max-height: 95vh;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    border-left: none;
+    border-right: none;
+    border-bottom: none;
+  }
+
+  .grid {
+    grid-template-columns: 1fr;
+  }
+
+  .fullRow {
+    grid-column: 1;
+  }
+
+  .dateRow {
+    grid-column: 1;
+  }
+
+  .body {
+    padding: 16px;
+  }
+
+  .footer {
+    padding: 12px 16px;
+  }
+}

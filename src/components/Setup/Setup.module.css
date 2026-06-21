@@ -1,0 +1,143 @@
+.container {
+  padding: 24px;
+  max-width: 840px;
+}
+
+.section {
+  margin-bottom: 8px;
+}
+
+.sectionTitle {
+  font-size: 16px;
+  margin-bottom: 16px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.field label {
+  font-size: 11px;
+  font-family: 'Arial', sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+}
+
+.hint {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-style: italic;
+  margin-bottom: 14px;
+}
+
+.dateRow {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+
+.monthName {
+  font-size: 12px;
+  color: var(--gold);
+  margin-top: 2px;
+}
+
+.calendarToggle {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.stdMonths {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 8px;
+}
+
+.stdMonth {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.stdMonth span:first-child {
+  color: var(--text-dim);
+  font-size: 11px;
+  min-width: 18px;
+}
+
+.days {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.customMonths {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.monthList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.monthRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.monthNum {
+  font-size: 12px;
+  color: var(--text-dim);
+  min-width: 20px;
+}
+
+.daysLabel {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.addMonth {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  background: var(--bg-card);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  flex-wrap: wrap;
+}
+
+@media (max-width: 640px) {
+  .container {
+    padding: 16px;
+  }
+
+  .dateRow {
+    gap: 12px;
+  }
+
+  .stdMonths {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  }
+
+  .monthRow {
+    flex-wrap: wrap;
+  }
+}
