@@ -6,6 +6,39 @@ Aplicativo offline-first para worldbuilding guiado de campanhas de RPG de mesa (
 
 ---
 
+## Repositório & Deploy (21/06/2026)
+
+- **GitHub:** https://github.com/tostess/grimorio-do-mundo
+- **Vercel:** https://grimorio-do-mundo.vercel.app *(confirmar URL no dashboard da Vercel)*
+- **Branch principal:** `main`
+- **Deploy automático:** todo `git push origin main` faz redeploy na Vercel em ~1 min
+
+### Workflow de desenvolvimento
+
+```bash
+# Rodar local
+npm run dev          # http://localhost:5173/
+
+# Instalar pacotes novos (SSL corporativo)
+npm install <pkg> --strict-ssl=false
+
+# Publicar alterações
+git add <arquivos>
+git commit -m "descrição"
+git push             # dispara redeploy automático na Vercel
+```
+
+### Configuração do deploy (Vercel)
+- Framework detectado: **Vite**
+- Build command: `npm run build`
+- Output directory: `dist`
+- `vercel.json` na raiz: redireciona todas as rotas para `index.html` (necessário para `?join=` de sessão P2P funcionar)
+
+### Observação SSL (ambiente de desenvolvimento)
+A máquina de desenvolvimento possui antivírus/proxy que intercepta SSL. O `.npmrc` com `strict-ssl=false` já resolve na instalação de pacotes. O build na Vercel não tem esse problema (ambiente limpo).
+
+---
+
 ## Roadmap
 
 ### ✅ Fase 1 — MVP React — VALIDADA (18/06/2026)
@@ -251,7 +284,7 @@ CharacterList (state: characters[], selectedId, subView)
 - [x] `MasterDashboard`: cards de jogadores refinados para avatar, nome, ficha vinculada, HP e CA respirarem melhor no painel do mestre; layout evita truncamento agressivo em nomes longos.
 - [x] Validação: `npm run build` passou após o polimento (21/06/2026).
 
-### Fase 8 — Áudio & Ambientação (PENDENTE)
+### Fase 8 — Áudio & Ambientação (PRÓXIMA — iniciar em novo chat)
 
 **Depende da Fase 5 para `AUDIO_CUE` broadcast. Funciona offline (só mestre) mesmo sem sessão ativa.**
 
