@@ -104,6 +104,13 @@
   overflow-y: auto;
 }
 
+/* When map tab is active, canvas must fill the area — no scroll, use flex column */
+.mainMap {
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
 .emptyState,
 .characterView {
   max-width: 900px;

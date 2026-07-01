@@ -197,7 +197,8 @@ export function SessionGuestShell() {
       </nav>
 
       <AudioUnlockBanner />
-      <main className={styles.main}>
+      {/* Map tab needs overflow:hidden + flex to let canvas fill the area */}
+      <main className={`${styles.main} ${activeTab === 'map' ? styles.mainMap : ''}`}>
         {activeTab === 'session' && <SessionLobby />}
         {activeTab === 'character' && <GuestCharacterView />}
         {activeTab === 'map' && <GuestMapView />}

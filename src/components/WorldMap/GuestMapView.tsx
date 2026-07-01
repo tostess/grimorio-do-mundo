@@ -100,11 +100,19 @@ function MarkerNode({
 export function GuestMapView() {
   const { session, updateMyPin, clearMyPin } = useSessionStore();
   const wrapperRef = useRef<HTMLDivElement>(null);
+
+  // Stage ref + imperative position/scale (avoid controlled props causing snap on re-render)
+  const stageRef = useRef<Konva.Stage>(null);
+  const stagePosRef = useRef({ x: 0, y: 0 });
+  const stageScaleRef = useRef(1);
+  // canvasSizeRef so img.onload always uses current size, not stale closure value
+  const canvasSizeRef = useRef({ w: 800, h: 500 });
+
   const [canvasSize, setCanvasSize] = useState({ w: 800, h: 500 });
   const [imageEl, setImageEl] = useState<HTMLImageElement | null>(null);
-  const [imageVersion, setImageVersion] = useState(0);
-  const [stagePos, setStagePos] = useState({ x: 0, y: 0 });
   const [stageScale, setStageScale] = useState(1);
+  // imageVersion triggers a retry when the image arrives after MAP_IMAGE_END
+  const [imageVersion, setImageVersion] = useState(0);
   const [popover, setPopover] = useState<{ marker: MapMarker; pos: { x: number; y: number } } | null>(null);
   const blobUrlRef = useRef<string | null>(null);
 
@@ -112,6 +120,9 @@ export function GuestMapView() {
   const playerPins = session.playerPins;
   const myPeerId = session.myPeerId ?? '';
   const myPin = playerPins[myPeerId] ?? null;
+
+  // Keep canvasSizeRef in sync
+  canvasSizeRef.current = canvasSize;
 
   // Resize observer
   useEffect(() => {
@@ -123,7 +134,7 @@ export function GuestMapView() {
     return () => ro.disconnect();
   }, []);
 
-  // Load image when sharedMap changes or imageVersion bumps (after receiving push)
+  // Load image when sharedMap changes or imageVersion bumps (after MAP_IMAGE_END)
   useEffect(() => {
     setImageEl(null);
     if (blobUrlRef.current) { URL.revokeObjectURL(blobUrlRef.current); blobUrlRef.current = null; }
@@ -135,38 +146,74 @@ export function GuestMapView() {
       const img = new window.Image();
       img.onload = () => {
         if (cancelled) return;
-        setImageEl(img);
-        const s = Math.min(canvasSize.w / img.naturalWidth, canvasSize.h / img.naturalHeight, 1);
+        const cs = canvasSizeRef.current;
+        const s = Math.min(cs.w / img.naturalWidth, cs.h / img.naturalHeight, 1);
+        const pos = { x: (cs.w - img.naturalWidth * s) / 2, y: (cs.h - img.naturalHeight * s) / 2 };
+        stagePosRef.current = pos;
+        stageScaleRef.current = s;
         setStageScale(s);
-        setStagePos({ x: (canvasSize.w - img.naturalWidth * s) / 2, y: (canvasSize.h - img.naturalHeight * s) / 2 });
+        setImageEl(img);
       };
       img.src = url;
     }).catch(() => {
-      // Imagem ainda não chegou — aguarda re-render quando imageVersion mudar
+      // Image not in IDB yet — wait for imageVersion bump from MAP_IMAGE_END log entry
     });
     return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sharedMap?.imageRefId, imageVersion]);
 
-  // Re-tenta carregar quando o log menciona recebimento da imagem
+  // Apply imperative position/scale after Stage mounts
   useEffect(() => {
+    if (!stageRef.current || !imageEl) return;
+    stageRef.current.scale({ x: stageScaleRef.current, y: stageScaleRef.current });
+    stageRef.current.position(stagePosRef.current);
+    stageRef.current.batchDraw();
+  }, [imageEl]);
+
+  // Bump imageVersion when image arrives — only if we don't already have one loaded
+  useEffect(() => {
+    if (imageEl) return; // Already loaded, no retry needed
     const last = session.log[0];
     if (last?.text.includes('Imagem do mapa recebida')) {
       setImageVersion(v => v + 1);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session.log]);
 
   function handleWheel(e: React.WheelEvent) {
     e.preventDefault();
-    if (!sharedMap) return;
+    if (!sharedMap || !stageRef.current) return;
     const factor = e.deltaY < 0 ? 1.08 : 1 / 1.08;
-    const newScale = Math.min(Math.max(stageScale * factor, 0.05), 12);
+    const curScale = stageScaleRef.current;
+    const newScale = Math.min(Math.max(curScale * factor, 0.05), 12);
     const rect = wrapperRef.current?.getBoundingClientRect();
     if (!rect) return;
     const mx = e.clientX - rect.left;
     const my = e.clientY - rect.top;
+    const curPos = stagePosRef.current;
+    const newPos = {
+      x: mx - (mx - curPos.x) * (newScale / curScale),
+      y: my - (my - curPos.y) * (newScale / curScale),
+    };
+    stagePosRef.current = newPos;
+    stageScaleRef.current = newScale;
+    stageRef.current.scale({ x: newScale, y: newScale });
+    stageRef.current.position(newPos);
+    stageRef.current.batchDraw();
     setStageScale(newScale);
-    setStagePos({ x: mx - (mx - stagePos.x) * (newScale / stageScale), y: my - (my - stagePos.y) * (newScale / stageScale) });
+  }
+
+  function fitToScreen() {
+    const s = Math.min(canvasSize.w / imgW, canvasSize.h / imgH, 1);
+    const pos = { x: (canvasSize.w - imgW * s) / 2, y: (canvasSize.h - imgH * s) / 2 };
+    stagePosRef.current = pos;
+    stageScaleRef.current = s;
+    if (stageRef.current) {
+      stageRef.current.scale({ x: s, y: s });
+      stageRef.current.position(pos);
+      stageRef.current.batchDraw();
+    }
+    setStageScale(s);
   }
 
   if (!sharedMap) {
@@ -183,7 +230,7 @@ export function GuestMapView() {
   const imgH = sharedMap.height;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
       {/* Toolbar */}
       <div className={styles.toolbar}>
         <span style={{ fontSize: '0.9rem', color: 'var(--gold)' }}>🗺️ Mapa da Sessão</span>
@@ -192,18 +239,14 @@ export function GuestMapView() {
           ? <button className="btn btn-sm btn-danger" onClick={clearMyPin}>🗑️ Remover meu pin</button>
           : <button className="btn btn-sm btn-primary" onClick={() => updateMyPin(0.5, 0.5)}>📌 Colocar meu pin</button>
         }
-        <button className="btn btn-sm" onClick={() => {
-          const s = Math.min(canvasSize.w / imgW, canvasSize.h / imgH, 1);
-          setStageScale(s);
-          setStagePos({ x: (canvasSize.w - imgW * s) / 2, y: (canvasSize.h - imgH * s) / 2 });
-        }} title="Ajustar à tela">🔍</button>
+        <button className="btn btn-sm" onClick={fitToScreen} title="Ajustar à tela">🔍</button>
       </div>
 
       {/* Canvas */}
       <div
         ref={wrapperRef}
         className={`${styles.canvasWrapper} ${styles.panMode}`}
-        style={{ flex: 1 }}
+        style={{ flex: 1, minHeight: 0 }}
         onWheel={handleWheel}
       >
         {!imageEl ? (
@@ -215,14 +258,14 @@ export function GuestMapView() {
         ) : (
           <>
             <Stage
+              ref={stageRef}
               width={canvasSize.w}
               height={canvasSize.h}
-              scaleX={stageScale}
-              scaleY={stageScale}
-              x={stagePos.x}
-              y={stagePos.y}
               draggable
-              onDragEnd={e => { const s = e.target as Konva.Stage; setStagePos({ x: s.x(), y: s.y() }); }}
+              onDragEnd={e => {
+                const s = e.target as Konva.Stage;
+                stagePosRef.current = { x: s.x(), y: s.y() };
+              }}
             >
               <Layer>
                 <KonvaImage image={imageEl} width={imgW} height={imgH} />

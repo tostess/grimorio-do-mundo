@@ -94,10 +94,21 @@ function JoinForm() {
   const [name, setName] = useState('');
   const [joining, setJoining] = useState(false);
 
-  // Pre-fill code from URL
+  // Pre-fill code from URL; auto-reconnect if sessionStorage has saved name from previous session
   useEffect(() => {
     const urlCode = parseJoinCode();
-    if (urlCode) setCode(urlCode.toLowerCase());
+    if (!urlCode) return;
+    setCode(urlCode.toLowerCase());
+    const savedName = sessionStorage.getItem('grimorio_join_name');
+    const savedHost = sessionStorage.getItem('grimorio_join_host');
+    if (savedName && savedHost === urlCode.toLowerCase()) {
+      // Page was refreshed mid-session — reconnect automatically
+      setName(savedName);
+      setJoining(true);
+      joinSession(urlCode.toLowerCase(), savedName);
+    }
+  // Run once on mount only
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function handleJoin(e: React.FormEvent) {

@@ -319,9 +319,17 @@ export function WorldMapView() {
   const { state, dispatch } = useAppStore();
   const { session, shareMap, updateMyPin, clearMyPin, mapTransferProgress } = useSessionStore();
   const wrapperRef = useRef<HTMLDivElement>(null);
+
+  // Stage ref + imperative position/scale (avoid controlled props causing snap on re-render)
+  const stageRef = useRef<Konva.Stage>(null);
+  const stagePosRef = useRef({ x: 0, y: 0 });
+  const stageScaleRef = useRef(1);
+  // canvasSizeRef so img.onload always sees the current size
+  const canvasSizeRef = useRef({ w: 800, h: 600 });
+
   const [canvasSize, setCanvasSize] = useState({ w: 800, h: 600 });
   const [imageEl, setImageEl] = useState<HTMLImageElement | null>(null);
-  const [stagePos, setStagePos] = useState({ x: 0, y: 0 });
+  // stageScale state drives marker/pin size calculations (re-renders MarkerNode on zoom)
   const [stageScale, setStageScale] = useState(1);
   const [addMode, setAddMode] = useState(false);
   const [popover, setPopover] = useState<{ marker: MapMarker; pos: { x: number; y: number } } | null>(null);
@@ -338,6 +346,9 @@ export function WorldMapView() {
   const myPin = playerPins[myPeerId] ?? null;
 
   const activeMap = (state.worldMaps ?? []).find(m => m.id === state.activeMapId) ?? null;
+
+  // Keep canvasSizeRef in sync
+  canvasSizeRef.current = canvasSize;
 
   // Resize observer
   useEffect(() => {
@@ -361,16 +372,27 @@ export function WorldMapView() {
       const img = new window.Image();
       img.onload = () => {
         if (cancelled) return;
-        setImageEl(img);
-        const s = Math.min(canvasSize.w / img.naturalWidth, canvasSize.h / img.naturalHeight, 1);
+        const cs = canvasSizeRef.current;
+        const s = Math.min(cs.w / img.naturalWidth, cs.h / img.naturalHeight, 1);
+        const pos = { x: (cs.w - img.naturalWidth * s) / 2, y: (cs.h - img.naturalHeight * s) / 2 };
+        stagePosRef.current = pos;
+        stageScaleRef.current = s;
         setStageScale(s);
-        setStagePos({ x: (canvasSize.w - img.naturalWidth * s) / 2, y: (canvasSize.h - img.naturalHeight * s) / 2 });
+        setImageEl(img);
       };
       img.src = url;
     }).catch(console.warn);
     return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeMap?.id, activeMap?.imageRefId]);
+
+  // Apply imperative position/scale after Stage mounts (when imageEl goes null → loaded)
+  useEffect(() => {
+    if (!stageRef.current || !imageEl) return;
+    stageRef.current.scale({ x: stageScaleRef.current, y: stageScaleRef.current });
+    stageRef.current.position(stagePosRef.current);
+    stageRef.current.batchDraw();
+  }, [imageEl]);
 
   async function handleShareMap() {
     if (!activeMap?.imageRefId || !isHost) return;
@@ -396,14 +418,25 @@ export function WorldMapView() {
 
   function handleWheel(e: React.WheelEvent) {
     e.preventDefault();
+    if (!stageRef.current) return;
     const factor = e.deltaY < 0 ? 1.08 : 1 / 1.08;
-    const newScale = Math.min(Math.max(stageScale * factor, 0.05), 12);
+    const curScale = stageScaleRef.current;
+    const newScale = Math.min(Math.max(curScale * factor, 0.05), 12);
     const rect = wrapperRef.current?.getBoundingClientRect();
     if (!rect) return;
     const mx = e.clientX - rect.left;
     const my = e.clientY - rect.top;
+    const curPos = stagePosRef.current;
+    const newPos = {
+      x: mx - (mx - curPos.x) * (newScale / curScale),
+      y: my - (my - curPos.y) * (newScale / curScale),
+    };
+    stagePosRef.current = newPos;
+    stageScaleRef.current = newScale;
+    stageRef.current.scale({ x: newScale, y: newScale });
+    stageRef.current.position(newPos);
+    stageRef.current.batchDraw();
     setStageScale(newScale);
-    setStagePos({ x: mx - (mx - stagePos.x) * (newScale / stageScale), y: my - (my - stagePos.y) * (newScale / stageScale) });
   }
 
   const handleStageClick = useCallback((e: Konva.KonvaEventObject<MouseEvent>) => {
@@ -457,8 +490,20 @@ export function WorldMapView() {
     setPopover(null);
     dispatch({ type: 'UPDATE_FILTERS', payload: { search: '' } });
     dispatch({ type: 'SET_ACTIVE_TAB', payload: 'timeline' });
-    // Let Timeline open; user can search the event by name
     setTimeout(() => dispatch({ type: 'UPDATE_FILTERS', payload: { search: state.events.find(e => e.id === eventId)?.name ?? '' } }), 50);
+  }
+
+  function fitToScreen() {
+    const s = Math.min(canvasSize.w / imgW, canvasSize.h / imgH, 1);
+    const pos = { x: (canvasSize.w - imgW * s) / 2, y: (canvasSize.h - imgH * s) / 2 };
+    stagePosRef.current = pos;
+    stageScaleRef.current = s;
+    if (stageRef.current) {
+      stageRef.current.scale({ x: s, y: s });
+      stageRef.current.position(pos);
+      stageRef.current.batchDraw();
+    }
+    setStageScale(s);
   }
 
   const imgW = activeMap?.width ?? 1;
@@ -493,11 +538,7 @@ export function WorldMapView() {
                 ? <button className="btn btn-sm btn-danger" onClick={clearMyPin} title="Remover meu pin">🗑️ Meu Pin</button>
                 : <button className="btn btn-sm" onClick={() => updateMyPin(0.5, 0.5)} title="Colocar meu pin no centro do mapa">👤 Meu Pin</button>
             )}
-            <button className="btn btn-sm" onClick={() => {
-              const s = Math.min(canvasSize.w / imgW, canvasSize.h / imgH, 1);
-              setStageScale(s);
-              setStagePos({ x: (canvasSize.w - imgW * s) / 2, y: (canvasSize.h - imgH * s) / 2 });
-            }} title="Ajustar à tela">
+            <button className="btn btn-sm" onClick={fitToScreen} title="Ajustar à tela">
               🔍
             </button>
           </>
@@ -536,44 +577,52 @@ export function WorldMapView() {
           </div>
         ) : (
           <>
-            <Stage
-              width={canvasSize.w}
-              height={canvasSize.h}
-              scaleX={stageScale}
-              scaleY={stageScale}
-              x={stagePos.x}
-              y={stagePos.y}
-              draggable={!addMode}
-              onDragEnd={e => { const s = e.target as Konva.Stage; setStagePos({ x: s.x(), y: s.y() }); }}
-              onClick={handleStageClick}
-              onTap={handleStageClick}
-            >
-              <Layer>
-                {imageEl && <KonvaImage image={imageEl} width={imgW} height={imgH} />}
-                {activeMap.markers.map(mk => (
-                  <MarkerNode
-                    key={mk.id}
-                    marker={mk}
-                    stageScale={stageScale}
-                    imgW={imgW}
-                    imgH={imgH}
-                    onClickMarker={onMarkerClick}
-                    onDragEnd={onMarkerDragEnd}
-                  />
-                ))}
-                {Object.values(playerPins).map(pin => (
-                  <PlayerPinNode
-                    key={pin.peerId}
-                    pin={pin}
-                    stageScale={stageScale}
-                    imgW={imgW}
-                    imgH={imgH}
-                    isOwn={pin.peerId === myPeerId}
-                    onDragEnd={pin.peerId === myPeerId ? (fx, fy) => updateMyPin(fx, fy) : undefined}
-                  />
-                ))}
-              </Layer>
-            </Stage>
+            {imageEl && (
+              <Stage
+                ref={stageRef}
+                width={canvasSize.w}
+                height={canvasSize.h}
+                draggable={!addMode}
+                onDragEnd={e => {
+                  const s = e.target as Konva.Stage;
+                  stagePosRef.current = { x: s.x(), y: s.y() };
+                }}
+                onClick={handleStageClick}
+                onTap={handleStageClick}
+              >
+                <Layer>
+                  <KonvaImage image={imageEl} width={imgW} height={imgH} />
+                  {activeMap.markers.map(mk => (
+                    <MarkerNode
+                      key={mk.id}
+                      marker={mk}
+                      stageScale={stageScale}
+                      imgW={imgW}
+                      imgH={imgH}
+                      onClickMarker={onMarkerClick}
+                      onDragEnd={onMarkerDragEnd}
+                    />
+                  ))}
+                  {Object.values(playerPins).map(pin => (
+                    <PlayerPinNode
+                      key={pin.peerId}
+                      pin={pin}
+                      stageScale={stageScale}
+                      imgW={imgW}
+                      imgH={imgH}
+                      isOwn={pin.peerId === myPeerId}
+                      onDragEnd={pin.peerId === myPeerId ? (fx, fy) => updateMyPin(fx, fy) : undefined}
+                    />
+                  ))}
+                </Layer>
+              </Stage>
+            )}
+
+            {!imageEl && (
+              <div className={styles.emptyState}>
+                <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>⏳ Carregando mapa...</span>
+              </div>
+            )}
 
             {addMode && (
               <div className={styles.modeHint}>📍 Clique no mapa para posicionar o marcador</div>

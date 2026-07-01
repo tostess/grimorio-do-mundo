@@ -344,6 +344,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     hostRef.current = null;
     guestRef.current = null;
 
+    // Persist host+name so the page refresh can auto-reconnect
+    sessionStorage.setItem('grimorio_join_host', hostId);
+    sessionStorage.setItem('grimorio_join_name', playerName);
+
     const guest = new SessionGuest(hostId, playerName, null, {
       onPeerIdReady: peerId => {
         dispatch({ type: 'JOIN', hostPeerId: hostId, myPeerId: peerId, playerName });
@@ -521,6 +525,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         }
       },
       onDisconnect: () => {
+        sessionStorage.removeItem('grimorio_join_host');
+        sessionStorage.removeItem('grimorio_join_name');
         _addLog('system', 'Sistema', 'system', 'Desconectado do mestre.');
         audioManager.stopAll();
         dispatch({ type: 'RESET' });
@@ -531,6 +537,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, [_addLog]);
 
   const closeSession = useCallback(() => {
+    sessionStorage.removeItem('grimorio_join_host');
+    sessionStorage.removeItem('grimorio_join_name');
     audioManager.stopAll();
     hostRef.current?.destroy();
     guestRef.current?.destroy();

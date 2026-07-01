@@ -203,6 +203,11 @@ relações de eventos, gerador de NPC) ficam como sub-itens posteriores. A integ
 - Mestre tem pin dourado (`#c9a84c`); jogadores têm cores da paleta `PIN_COLORS` (6 cores por slot)
 - `GuestMapView` detecta chegada da imagem via log (`'Imagem do mapa recebida'`) para retry do `getMapImageUrl` — sem polling, apenas reação ao evento
 
+#### ✅ Polimento do Mapa — Bugs Corrigidos (21/06/2026)
+- [x] **Bug: Mapa sai da tela ao arrastar / snap durante drag** — `Stage` do Konva recebia `x/y/scaleX/scaleY` como props React controladas. Qualquer re-render (atualização de pin, mensagem P2P) re-aplicava a posição antiga ao Stage enquanto ele estava sendo arrastado. **Correção:** Stage agora é imperativo — `stageRef` + `stagePosRef` + `stageScaleRef`; posição/scale aplicados via `stageRef.current.position()/.scale()/.batchDraw()`; somente `stageScale` fica em state (para calcular tamanho de marcadores/pins). Aplica posição via `useEffect([imageEl])` após Stage montar. Ambos `WorldMap.tsx` e `GuestMapView.tsx` corrigidos.
+- [x] **Bug: Mapa some ao visualizar pela segunda vez (guest)** — Dois problemas combinados: (1) `SessionGuestShell.main` tinha `overflow-y: auto`, quebrando `height: '100%'` do GuestMapView ao remontar. Corrigido adicionando classe `.mainMap` (`overflow: hidden; display: flex; flex-direction: column`) quando aba de mapa está ativa, e `GuestMapView` usa `flex: 1; minHeight: 0` no root e canvas. (2) O retry de `imageVersion` disparava duplo ao remontar se `session.log[0]` ainda continha "Imagem do mapa recebida"; corrigido com guard `if (imageEl) return` no effect de log.
+- [x] **Bug: Sessão perdida ao recarregar página** — WebRTC é inerentemente efêmero, mas o `?join=code` da URL sobrevive ao refresh. Agora `sessionContext.joinSession()` salva `{grimorio_join_host, grimorio_join_name}` no `sessionStorage`; `closeSession()` e `onDisconnect()` limpam. `JoinForm` auto-conecta ao montar se URL tem `?join=` e sessionStorage tem o nome salvo — reconexão sem interação do usuário.
+
 #### Próxima sessão
 - `MapMarker.visibility: 'hidden'|'revealed'` já presente — controle granular de quais marcadores são enviados aos guests (atualmente só `'revealed'` são enviados no `MAP_SHARE`)
 
