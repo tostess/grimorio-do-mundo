@@ -3,7 +3,7 @@ import { Stage, Layer, Image as KonvaImage, Circle, Text, Group } from 'react-ko
 import type Konva from 'konva';
 import { useAppStore } from '../../store/context';
 import { useSessionStore } from '../../store/sessionContext';
-import type { WorldMap, MapMarker, MarkerKind } from '../../types/worldmap';
+import type { WorldMap, MapMarker, MarkerKind, MarkerVisibility } from '../../types/worldmap';
 import { MARKER_LABELS, MARKER_ICONS } from '../../types/worldmap';
 import type { PlayerPin } from '../../types/session';
 import {
@@ -28,6 +28,7 @@ interface MarkerForm {
   kind: MarkerKind;
   color: string;
   linkedEventIds: number[];
+  visibility: MarkerVisibility;
 }
 
 function MarkerModal({
@@ -45,6 +46,7 @@ function MarkerModal({
     kind: marker?.kind ?? 'poi',
     color: marker?.color ?? MARKER_COLORS['poi'],
     linkedEventIds: marker?.linkedEventIds ?? [],
+    visibility: marker?.visibility ?? 'revealed',
   });
 
   function handleKindChange(kind: MarkerKind) {
@@ -92,6 +94,20 @@ function MarkerModal({
         <div className={styles.fieldGroup}>
           <label>Descrição</label>
           <textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} rows={3} placeholder="Descrição do local..." />
+        </div>
+
+        <div className={styles.fieldGroup}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={form.visibility === 'revealed'}
+              onChange={e => setForm(f => ({ ...f, visibility: e.target.checked ? 'revealed' : 'hidden' }))}
+            />
+            👁 Visível para os jogadores
+          </label>
+          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+            Marcadores ocultos não são enviados quando o mapa é compartilhado na sessão.
+          </div>
         </div>
 
         {state.events.length > 0 && (
@@ -219,10 +235,12 @@ function MarkerNode({
   const py = marker.y * imgH;
   const r = MARKER_RADIUS / stageScale;
   const fs = Math.max(8, Math.round(12 / stageScale));
+  const hidden = marker.visibility === 'hidden';
 
   return (
     <Group
       x={px} y={py}
+      opacity={hidden ? 0.45 : 1}
       draggable
       onDragEnd={e => {
         const node = e.target as Konva.Node;
@@ -239,7 +257,7 @@ function MarkerNode({
         onClickMarker(marker, abs);
       }}
     >
-      <Circle radius={r} fill={marker.color} stroke="#ffffff" strokeWidth={1.5 / stageScale} shadowBlur={6 / stageScale} shadowOpacity={0.6} />
+      <Circle radius={r} fill={marker.color} stroke="#ffffff" strokeWidth={1.5 / stageScale} dash={hidden ? [4 / stageScale, 3 / stageScale] : undefined} shadowBlur={6 / stageScale} shadowOpacity={0.6} />
       <Text text={MARKER_ICONS[marker.kind]} fontSize={fs} align="center" verticalAlign="middle" offsetX={fs / 2} offsetY={fs / 2} />
     </Group>
   );
@@ -247,7 +265,7 @@ function MarkerNode({
 
 // ── Popover (DOM overlay) ──────────────────────────────────────────────────────
 function MarkerPopover({
-  marker, pos, events, onClose, onEdit, onNavigateEvent,
+  marker, pos, events, onClose, onEdit, onNavigateEvent, onToggleVisibility,
 }: {
   marker: MapMarker;
   pos: { x: number; y: number };
@@ -255,6 +273,7 @@ function MarkerPopover({
   onClose: () => void;
   onEdit: () => void;
   onNavigateEvent: (id: number) => void;
+  onToggleVisibility: () => void;
 }) {
   const linked = events.filter(e => marker.linkedEventIds.includes(e.id));
   return (
@@ -262,6 +281,9 @@ function MarkerPopover({
       <button className={styles.popoverClose} onClick={onClose}>✕</button>
       <div className={styles.popoverTitle}>{MARKER_ICONS[marker.kind]} {marker.label}</div>
       <div className={styles.popoverKind}>{MARKER_LABELS[marker.kind]}</div>
+      {marker.visibility === 'hidden' && (
+        <div className={styles.popoverKind} style={{ color: 'var(--red-light)' }}>🙈 Oculto dos jogadores</div>
+      )}
       {marker.description && <div className={styles.popoverDesc}>{marker.description}</div>}
       {linked.length > 0 && (
         <div className={styles.popoverEvents}>
@@ -275,6 +297,9 @@ function MarkerPopover({
       )}
       <div className={styles.popoverActions}>
         <button className="btn btn-sm" onClick={onEdit}>✏️ Editar</button>
+        <button className="btn btn-sm" onClick={onToggleVisibility} title="Controla se o marcador é enviado aos jogadores ao compartilhar o mapa">
+          {marker.visibility === 'hidden' ? '👁 Revelar' : '🙈 Ocultar'}
+        </button>
       </div>
     </div>
   );
@@ -317,7 +342,7 @@ function PlayerPinNode({
 // ── Main view ──────────────────────────────────────────────────────────────────
 export function WorldMapView() {
   const { state, dispatch } = useAppStore();
-  const { session, shareMap, updateMyPin, clearMyPin, mapTransferProgress } = useSessionStore();
+  const { session, shareMap, updateSharedMarkers, updateMyPin, clearMyPin, mapTransferProgress } = useSessionStore();
   const wrapperRef = useRef<HTMLDivElement>(null);
 
   // Stage ref + imperative position/scale (avoid controlled props causing snap on re-render)
@@ -394,6 +419,15 @@ export function WorldMapView() {
     stageRef.current.batchDraw();
   }, [imageEl]);
 
+  // While this map is shared, any marker change (add/edit/move/delete/visibility)
+  // re-broadcasts the revealed markers to guests — without resending the image
+  const sharedMapId = session.sharedMap?.mapId ?? null;
+  useEffect(() => {
+    if (!isHost || !activeMap || sharedMapId !== activeMap.id) return;
+    updateSharedMarkers(activeMap.markers.filter(m => m.visibility !== 'hidden'));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeMap?.markers, sharedMapId, isHost]);
+
   async function handleShareMap() {
     if (!activeMap?.imageRefId || !isHost) return;
     setSharing(true);
@@ -405,7 +439,7 @@ export function WorldMapView() {
         imageRefId: activeMap.imageRefId,
         width: activeMap.width,
         height: activeMap.height,
-        markers: activeMap.markers.filter(m => m.visibility === 'revealed'),
+        markers: activeMap.markers.filter(m => m.visibility !== 'hidden'),
       };
       await shareMap(sharedMap, result.buffer, result.meta.mime);
     } catch (err) {
@@ -467,7 +501,6 @@ export function WorldMapView() {
       const m: MapMarker = {
         id: Date.now().toString(36) + Math.random().toString(36).slice(2, 5),
         x: pendingFrac.x, y: pendingFrac.y,
-        visibility: 'revealed',
         ...form,
       };
       dispatch({ type: 'ADD_MARKER', payload: { mapId: activeMap.id, marker: m } });
@@ -477,6 +510,14 @@ export function WorldMapView() {
     setEditingMarker(null);
     setPendingFrac(null);
     setPopover(null);
+  }
+
+  function toggleMarkerVisibility(marker: MapMarker) {
+    if (!activeMap) return;
+    const updated: MapMarker = { ...marker, visibility: marker.visibility === 'hidden' ? 'revealed' : 'hidden' };
+    dispatch({ type: 'UPDATE_MARKER', payload: { mapId: activeMap.id, marker: updated } });
+    // Popover segura um snapshot do marcador — atualiza para o botão refletir o novo estado
+    setPopover(p => (p && p.marker.id === marker.id ? { ...p, marker: updated } : p));
   }
 
   function deleteMarker(marker: MapMarker) {
@@ -636,6 +677,7 @@ export function WorldMapView() {
                 onClose={() => setPopover(null)}
                 onEdit={() => { setEditingMarker(popover.marker); setPopover(null); }}
                 onNavigateEvent={navigateToEvent}
+                onToggleVisibility={() => toggleMarkerVisibility(popover.marker)}
               />
             )}
           </>

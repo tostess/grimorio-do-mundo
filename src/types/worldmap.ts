@@ -12,7 +12,7 @@ export interface MapMarker {
   description: string;
   linkedEventIds: number[];
   color: string;
-  // Future: controls guest visibility; not used in this phase
+  // Controls guest visibility: only non-hidden markers are sent on MAP_SHARE
   visibility: MarkerVisibility;
 }
 

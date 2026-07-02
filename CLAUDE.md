@@ -208,8 +208,18 @@ relações de eventos, gerador de NPC) ficam como sub-itens posteriores. A integ
 - [x] **Bug: Mapa some ao visualizar pela segunda vez (guest)** — Dois problemas combinados: (1) `SessionGuestShell.main` tinha `overflow-y: auto`, quebrando `height: '100%'` do GuestMapView ao remontar. Corrigido adicionando classe `.mainMap` (`overflow: hidden; display: flex; flex-direction: column`) quando aba de mapa está ativa, e `GuestMapView` usa `flex: 1; minHeight: 0` no root e canvas. (2) O retry de `imageVersion` disparava duplo ao remontar se `session.log[0]` ainda continha "Imagem do mapa recebida"; corrigido com guard `if (imageEl) return` no effect de log.
 - [x] **Bug: Sessão perdida ao recarregar página** — WebRTC é inerentemente efêmero, mas o `?join=code` da URL sobrevive ao refresh. Agora `sessionContext.joinSession()` salva `{grimorio_join_host, grimorio_join_name}` no `sessionStorage`; `closeSession()` e `onDisconnect()` limpam. `JoinForm` auto-conecta ao montar se URL tem `?join=` e sessionStorage tem o nome salvo — reconexão sem interação do usuário.
 
+#### ✅ Visibilidade Granular de Marcadores — CONCLUÍDA (01/07/2026)
+- [x] `MarkerModal`: checkbox "👁 Visível para os jogadores" (`MarkerForm.visibility`); novos marcadores nascem `'revealed'`
+- [x] `MarkerPopover`: badge "🙈 Oculto dos jogadores" + botão de toggle rápido "🙈 Ocultar" / "👁 Revelar" (via `UPDATE_MARKER`; popover atualiza o snapshot local do marcador para o botão refletir o novo estado)
+- [x] `MarkerNode` (vista do mestre): marcador oculto renderiza com `opacity 0.45` + borda tracejada (`dash`) — distinção visual imediata
+- [x] Sync ao vivo: `useEffect` em `WorldMapView` observa `activeMap.markers`; se o mapa ativo estiver compartilhado (`session.sharedMap.mapId === activeMap.id`), chama `updateSharedMarkers()` — re-broadcast leve de `MAP_SHARE` **sem reenviar a imagem** (guests já têm o binário no IDB com o mesmo `imageRefId`; o effect de load do guest depende de `imageRefId`, que não muda)
+- [x] `sessionContext.updateSharedMarkers(markers)`: atualiza `sharedMap` local, broadcast `MAP_SHARE` e `updateSnapshot()` (late joiners recebem a lista atualizada)
+- [x] Guest: handler de `MAP_SHARE` só loga "Mestre compartilhou o mapa" quando o `mapId` muda — re-broadcasts de marcadores não poluem o log
+- [x] Filtro de envio robustecido: `visibility !== 'hidden'` (em vez de `=== 'revealed'`) — marcadores de JSONs antigos sem o campo são tratados como revelados
+- [x] Build verificado: `npm run build` passou (01/07/2026)
+
 #### Próxima sessão
-- `MapMarker.visibility: 'hidden'|'revealed'` já presente — controle granular de quais marcadores são enviados aos guests (atualmente só `'revealed'` são enviados no `MAP_SHARE`)
+- Núcleo do Mapa do Mundo concluído — próximos blocos: Worldbuilding Avançado (abaixo) ou Fase 9 (BattleMap)
 
 #### Worldbuilding Avançado (posterior — manter como pendente)
 - [ ] Árvore genealógica de personagens/facções

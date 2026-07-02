@@ -7,6 +7,7 @@ import type {
   CombatState, InitiativeEntry, AssignedCharacter, PlayerPin, SharedMap,
 } from '../types/session';
 import type { SessionMessage } from '../net/protocol';
+import type { MapMarker } from '../types/worldmap';
 import { SessionHost } from '../net/SessionHost';
 import { SessionGuest } from '../net/SessionGuest';
 import { generateShortCode } from '../net/qr';
@@ -208,6 +209,7 @@ interface SessionContextType {
   assignCharacter: (peerId: string, characterId: string | null, character: AssignedCharacter | null) => void;
   // Mapa (host only)
   shareMap: (sharedMap: SharedMap, imageBuffer: ArrayBuffer, mime: string) => Promise<void>;
+  updateSharedMarkers: (markers: MapMarker[]) => void;
   // Pins (host e guest)
   updateMyPin: (x: number, y: number) => void;
   clearMyPin: () => void;
@@ -483,8 +485,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
             guestRef.current?.send({ type: 'AUDIO_ASSET_ACK', assetId: msg.assetId, received: transfer.totalChunks });
           })();
         } else if (msg.type === 'MAP_SHARE') {
+          // Marcadores podem ser re-broadcast do mesmo mapa — loga só quando o mapa muda
+          const isNewMap = sessionRef.current.sharedMap?.mapId !== msg.sharedMap.mapId;
           dispatch({ type: 'SET_SHARED_MAP', sharedMap: msg.sharedMap });
-          _addLog('system', 'Sistema', 'system', 'Mestre compartilhou o mapa da sessão.');
+          if (isNewMap) _addLog('system', 'Sistema', 'system', 'Mestre compartilhou o mapa da sessão.');
         } else if (msg.type === 'MAP_IMAGE_BEGIN') {
           pendingMapChunksRef.current.set(msg.imageRefId, {
             chunks: new Map(),
@@ -704,6 +708,16 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     _addLog('system', 'Sistema', 'system', 'Mapa compartilhado com os jogadores.');
   }, [_addLog, _getSnapshot]);
 
+  // Atualiza só os marcadores do mapa já compartilhado — sem reenviar a imagem
+  const updateSharedMarkers = useCallback((markers: MapMarker[]): void => {
+    const cur = sessionRef.current;
+    if (cur.role !== 'host' || !cur.sharedMap || !hostRef.current) return;
+    const sharedMap: SharedMap = { ...cur.sharedMap, markers };
+    dispatch({ type: 'SET_SHARED_MAP', sharedMap });
+    hostRef.current.broadcast({ type: 'MAP_SHARE', sharedMap } satisfies SessionMessage);
+    hostRef.current.updateSnapshot({ ..._getSnapshot(), sharedMap });
+  }, [_getSnapshot]);
+
   const updateMyPin = useCallback((x: number, y: number): void => {
     const cur = sessionRef.current;
     const peerId = cur.myPeerId ?? 'host';
@@ -869,6 +883,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       applyConditions,
       assignCharacter,
       shareMap,
+      updateSharedMarkers,
       updateMyPin,
       clearMyPin,
       playAudioTrack,
