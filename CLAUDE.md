@@ -219,7 +219,7 @@ relações de eventos, gerador de NPC) ficam como sub-itens posteriores. A integ
 - [x] Build verificado: `npm run build` passou (01/07/2026)
 
 #### Próxima sessão
-- Núcleo do Mapa do Mundo concluído — próximos blocos: Worldbuilding Avançado (abaixo) ou Fase 9 (BattleMap)
+- Núcleo do Mapa do Mundo concluído; Fase 9 (BattleMap) concluída em 02/07/2026 — próximos blocos: Fase 10 (Bestiário & Polimento) ou Worldbuilding Avançado (abaixo)
 
 #### Worldbuilding Avançado (posterior — manter como pendente)
 - [ ] Árvore genealógica de personagens/facções
@@ -382,20 +382,33 @@ CharacterList (state: characters[], selectedId, subView)
 - [ ] Avaliar viabilidade de latência aceitável para ambientação (< 300 ms)
 - [ ] Manter `AUDIO_CUE` como fallback para guests offline ou com autoplay bloqueado
 
-### Fase 9 — Mapa & Grid de Batalha (PENDENTE)
+### ✅ Fase 9 — Mapa & Grid de Batalha — CONCLUÍDA (02/07/2026)
 
-**Maior bloco de trabalho isolado. Depende das Fases 5 e 6.**
+**Depende das Fases 5 e 6.**
 
-- [ ] Instalar `konva` + `react-konva` como dependências de produção (ver exceção em Convenções de Código)
-- [ ] `src/types/map.ts` — tipos: `BattleMap`, `MapToken`, `FogCell`, `GridType` (`'square'|'hex'`), `Measurement`, `TokenColor`
-- [ ] `src/components/Session/BattleMap/` — canvas Konva com: grid quadriculado (padrão) ou hexagonal; imagem de fundo; tokens arrastáveis; ruler de medição (clique-arraste mostra distância em pés); destaque animado no token do combatente ativo
-- [ ] Import de mapa: upload PNG/JPG/WebP; `ArrayBuffer` no IndexedDB (store `grimorio-maps`); mestre define escala (ex: 1 quadrado = 5 pés = N pixels)
-- [ ] Tokens: criados de fichas `Character` (ícone = inicial + cor do jogador) ou NPCs ad-hoc (inicial + vermelho); posições em `SessionState.tokens`
-- [ ] Fog of war: mestre revela áreas com click/drag; jogadores veem apenas células reveladas; `FOG_UPDATE` broadcast com `RevealedCell[]`; clipping layer no canvas Konva
-- [ ] Sync de tokens: guests movem apenas o próprio token; host move qualquer token; `TOKEN_MOVE` broadcast validado pelo host
-- [ ] Múltiplos mapas por sessão: mestre cria/troca mapa ativo; `STATE_SYNC` inclui `activeMapId` + estado completo do mapa
-- [ ] Mobile: pinch-zoom + pan no canvas Konva; toolbar de ferramentas colapsável em telas pequenas
-- [ ] Nota: `BattleMap` de sessão e mapa interativo do mundo (Fase 4) são componentes distintos; integração (linkar batalha a ponto do mapa-mundo) planejada para Fase 11+
+- [x] `konva` + `react-konva` já instalados desde a Fase 4 (nenhuma dependência nova)
+- [x] `src/types/map.ts` — tipos: `BattleMap` (id, name, imageRefId, width/height, gridType, cellSize, feetPerCell, fogEnabled), `MapToken` (x/y em **coordenadas de célula**, size 1–3, peerId dono, isNPC), `FogCell`, `GridType` (`'square'|'hex'`), `Measurement`, `TokenColor` + paleta `TOKEN_COLORS`, `BattleMapRecord` (map + tokens + revealed), helper `tokenInitials`
+- [x] `src/utils/gridMath.ts` — matemática de grade: `cellCenter`, `pointToCell`, `cellDistance`, `gridDims`, `hexCornerPoints`; hex pointy-top com offset odd-r + cube rounding; distância 5e simplificada (diagonal = 1 célula / Chebyshev na quadrada; distância axial em hex)
+- [x] `src/components/Session/BattleMap/BattleCanvas.tsx` — módulo compartilhado host/guest: hook `useBattleStage` (pan/zoom imperativo — mesmo padrão anti-snap do WorldMap — + pinch-zoom mobile de 2 dedos + ResizeObserver + fit), `GridShape` (sceneFunc: linhas ou hexágonos), `FogShapes` (Rect preto + buracos `globalCompositeOperation: 'destination-out'` em Layer própria), `BattleTokenNode` (Circle + iniciais + nome; snap para o centro da célula no dragEnd; anel dourado tracejado no combatente ativo), `clampCell`
+- [x] `src/components/Session/BattleMap/BattleMapView.tsx` — vista do mestre: criar mapa com upload PNG/JPG/WebP **ou sem imagem** (cols×rows em fundo liso); seletor de múltiplos mapas; ferramentas ✋ pan / 📏 régua (distância em pés ao arrastar) / 🔦 revelar / 🌫️ ocultar (pincel 1×1/3×3/5×5); toggle de névoa; painel ⚙️ (gridType, cellSize via slider, feetPerCell, revelar/ocultar tudo, reenviar imagem, excluir mapa); painel ＋ Token (jogadores conectados com cor por slot + NPCs ad-hoc com cor/tamanho)
+- [x] `src/components/Session/BattleMap/GuestBattleView.tsx` — vista do jogador: canvas read-only; move **apenas o próprio token**; névoa opaca (0.96); tokens alheios só em células reveladas; próprio token em Layer acima da névoa (sempre visível); retry de imagem via log (mesmo padrão do GuestMapView)
+- [x] Import de mapa: `ArrayBuffer` no IndexedDB `grimorio-maps` (reuso de `mapStorage.ts`); distribuição P2P reutiliza `MAP_IMAGE_BEGIN/CHUNK/END` chunked ~64 KB via `pushBattleMapImage`
+- [x] Sync de tokens: guest envia `TOKEN_MOVE` com update otimista local; host valida posse (`token.peerId === from`) e retransmite aos demais; host move qualquer token
+- [x] Fog of war: `FOG_UPDATE` broadcast com a lista completa de `FogCell[]` (idempotente); pintura por arrasto com draft local, commit no mouseup
+- [x] Múltiplos mapas por sessão: host guarda todos em `SessionState.battleMaps[]`; apenas o mapa ativo vai no snapshot (`SessionSnapshot.battle`) e no broadcast `BATTLE_MAP_SHARE` — late joiners recebem via `STATE_SYNC`
+- [x] Mobile: pinch-zoom (2 dedos) + pan; `touch-action: none` no wrapper; toolbar com wrap
+- [x] Integração: botão ⚔️🗺️ na `ConnectionBar` do `MasterDashboard` alterna painéis ↔ grid; aba "⚔️ Grid" no `SessionGuestShell`
+- [x] Build verificado: `npm run build` passou (02/07/2026)
+
+**Desvios do design original:**
+- Tokens **não** usam o campo legado `SessionState.tokens` (`Token`); vivem dentro de `BattleMapRecord.tokens` (`MapToken`) junto do mapa dono — cada mapa tem seus próprios tokens e névoa. O campo legado permanece intocado
+- Fog não usa clipping layer: Rect preto + buracos com `destination-out` em Layer separada (API pública do Konva, mais simples e igualmente robusto)
+- Fog broadcast envia a lista completa de células (não deltas) — payload pequeno e idempotente, elimina dessincronia
+- Imagem não é re-enviada automaticamente a cada ativação de mapa; o mestre tem botão "📤 Reenviar imagem" no painel ⚙️ para late joiners
+- Escala definida como `cellSize` (px por célula) + `feetPerCell` em vez de "N pixels = 5 pés" — mesmo efeito, controles diretos
+- Régua exibida apenas localmente no device do mestre (não sincronizada) — medição é ferramenta de consulta, não estado de jogo
+- Destaque do combatente ativo: anel dourado tracejado estático com glow (sem `Konva.Animation` — evita redraw contínuo do canvas)
+- Nota: `BattleMap` de sessão e mapa interativo do mundo (Fase 4) são componentes distintos; integração (linkar batalha a ponto do mapa-mundo) planejada para Fase 11+
 
 ### Fase 10 — Bestiário 5e & Polimento (PENDENTE)
 
@@ -712,7 +725,7 @@ src/
     worldmap.ts           — (Fase 4) WorldMap, MapMarker, MarkerKind, MARKER_LABELS, MARKER_ICONS
     session.ts            — (Fase 5) SessionState (incl. myCharacterId), PeerInfo, CombatState, Token, AudioState, LogEntry, SessionSnapshot, InitiativeEntry
     character.ts          — (Fase 6) Character, Ability5e, Skill5e, Attack, Spell, Condition5e, etc.
-    map.ts                — (Fase 9) BattleMap, MapToken, FogCell, GridType, etc.
+    map.ts                — (Fase 9) BattleMap, MapToken, FogCell, GridType, Measurement, TOKEN_COLORS, BattleMapRecord
   data/
     prompts.ts            — Os 400 prompts de worldbuilding
     eventIdeas.ts         — As 190 ideias de eventos
@@ -735,6 +748,7 @@ src/
     db.ts                 — wa-sqlite singleton + _enqueue() FIFO
     storageDB.ts          — CRUD async por entidade (worlds, states, checkpoints, characters)
     dice.ts               — Parser de notação de dados: rollDice(), rollModifier() (Fase 6)
+    gridMath.ts           — Matemática de grade quadrada/hexagonal: cellCenter, pointToCell, cellDistance, gridDims (Fase 9)
     avatarStorage.ts      — CRUD de avatares em IndexedDB grimorio-avatars (Fase 6)
     mapStorage.ts         — CRUD de imagens de mapa em IndexedDB grimorio-maps (meta + data stores) (Fase 4)
     audio.ts              — AudioManager singleton sobre Howler: play, stop, crossfade, unlock, refreshMeta (Fase 8)
@@ -762,7 +776,10 @@ src/
       SessionGuestShell/  — Shell enxuto para guests: header status + aba Sessão
       MasterDashboard/    — (Fase 7) Painel do mestre: Peers, Iniciativa, Log
       AudioMixer/         — Mixer: Ambiência (crossfade) + SFX + import IDB + distribuição P2P chunked (Fase 8)
-      BattleMap/          — (Fase 9) Canvas Konva: grid, tokens, fog of war
+      BattleMap/          — (Fase 9) Canvas Konva: grid quadrado/hex, tokens, fog of war, régua
+        BattleCanvas.tsx    — Shared host/guest: useBattleStage (pan/zoom/pinch), GridShape, FogShapes, BattleTokenNode
+        BattleMapView.tsx   — Vista do mestre: criar/trocar mapas, ferramentas, névoa, tokens
+        GuestBattleView.tsx — Vista do jogador: read-only + próprio token draggable
       Bestiary/           — (Fase 10) Bestiário 5e pesquisável
       CombatReport/       — (Fase 10) Modal de fim de sessão → salvar como evento na Timeline
   styles/

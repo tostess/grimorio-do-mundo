@@ -8,6 +8,7 @@ import type {
 } from '../types/session';
 import type { SessionMessage } from '../net/protocol';
 import type { MapMarker } from '../types/worldmap';
+import type { BattleMap, BattleMapRecord, MapToken, FogCell } from '../types/map';
 import { SessionHost } from '../net/SessionHost';
 import { SessionGuest } from '../net/SessionGuest';
 import { generateShortCode } from '../net/qr';
@@ -79,6 +80,14 @@ type SessionAction =
   | { type: 'SET_SHARED_MAP'; sharedMap: SharedMap | null }
   | { type: 'SET_PLAYER_PIN'; pin: PlayerPin }
   | { type: 'CLEAR_PLAYER_PIN'; peerId: string }
+  | { type: 'ADD_BATTLE_MAP'; record: BattleMapRecord }
+  | { type: 'DELETE_BATTLE_MAP'; mapId: string }
+  | { type: 'SET_ACTIVE_BATTLE_MAP'; mapId: string | null }
+  | { type: 'UPDATE_BATTLE_MAP'; mapId: string; patch: Partial<BattleMap> }
+  | { type: 'SET_BATTLE_TOKENS'; mapId: string; tokens: MapToken[] }
+  | { type: 'MOVE_BATTLE_TOKEN'; tokenId: string; x: number; y: number }
+  | { type: 'SET_FOG'; mapId: string; revealed: FogCell[] }
+  | { type: 'APPLY_BATTLE'; battle: BattleMapRecord | null }
   | { type: 'RESET' };
 
 function sessionReducer(state: SessionState, action: SessionAction): SessionState {
@@ -98,11 +107,14 @@ function sessionReducer(state: SessionState, action: SessionAction): SessionStat
     case 'SET_PEERS':
       return { ...state, peers: action.peers };
     case 'APPLY_SNAPSHOT': {
+      const { battle, ...rest } = action.snapshot;
       const myPeerId = state.myPeerId;
       const myPeer = myPeerId ? action.snapshot.peers.find(p => p.peerId === myPeerId) : undefined;
       return {
         ...state,
-        ...action.snapshot,
+        ...rest,
+        battleMaps: battle ? [battle] : [],
+        activeBattleMapId: battle?.map.id ?? null,
         myCharacterId: myPeer?.characterId ?? state.myCharacterId,
         myCharacter: myPeerId ? action.snapshot.assignedCharacters[myPeerId] ?? null : state.myCharacter,
       };
@@ -180,6 +192,59 @@ function sessionReducer(state: SessionState, action: SessionAction): SessionStat
       delete pins[action.peerId];
       return { ...state, playerPins: pins };
     }
+    case 'ADD_BATTLE_MAP':
+      return {
+        ...state,
+        battleMaps: [...state.battleMaps, action.record],
+        activeBattleMapId: action.record.map.id,
+      };
+    case 'DELETE_BATTLE_MAP':
+      return {
+        ...state,
+        battleMaps: state.battleMaps.filter(b => b.map.id !== action.mapId),
+        activeBattleMapId: state.activeBattleMapId === action.mapId ? null : state.activeBattleMapId,
+      };
+    case 'SET_ACTIVE_BATTLE_MAP':
+      return { ...state, activeBattleMapId: action.mapId };
+    case 'UPDATE_BATTLE_MAP':
+      return {
+        ...state,
+        battleMaps: state.battleMaps.map(b =>
+          b.map.id === action.mapId ? { ...b, map: { ...b.map, ...action.patch } } : b,
+        ),
+      };
+    case 'SET_BATTLE_TOKENS':
+      return {
+        ...state,
+        battleMaps: state.battleMaps.map(b =>
+          b.map.id === action.mapId ? { ...b, tokens: action.tokens } : b,
+        ),
+      };
+    case 'MOVE_BATTLE_TOKEN': {
+      const mapId = state.activeBattleMapId;
+      if (!mapId) return state;
+      return {
+        ...state,
+        battleMaps: state.battleMaps.map(b =>
+          b.map.id === mapId
+            ? { ...b, tokens: b.tokens.map(t => t.id === action.tokenId ? { ...t, x: action.x, y: action.y } : t) }
+            : b,
+        ),
+      };
+    }
+    case 'SET_FOG':
+      return {
+        ...state,
+        battleMaps: state.battleMaps.map(b =>
+          b.map.id === action.mapId ? { ...b, revealed: action.revealed } : b,
+        ),
+      };
+    case 'APPLY_BATTLE':
+      return {
+        ...state,
+        battleMaps: action.battle ? [action.battle] : [],
+        activeBattleMapId: action.battle?.map.id ?? null,
+      };
     case 'RESET':
       return INITIAL_SESSION_STATE;
     default:
@@ -210,6 +275,15 @@ interface SessionContextType {
   // Mapa (host only)
   shareMap: (sharedMap: SharedMap, imageBuffer: ArrayBuffer, mime: string) => Promise<void>;
   updateSharedMarkers: (markers: MapMarker[]) => void;
+  // Grid de batalha (Fase 9)
+  createBattleMap: (map: BattleMap, tokens?: MapToken[]) => void;
+  activateBattleMap: (mapId: string | null) => void;
+  deleteBattleMap: (mapId: string) => void;
+  updateBattleMap: (mapId: string, patch: Partial<BattleMap>) => void;
+  setBattleTokens: (mapId: string, tokens: MapToken[]) => void;
+  moveBattleToken: (tokenId: string, x: number, y: number) => void;
+  setFogCells: (mapId: string, revealed: FogCell[]) => void;
+  pushBattleMapImage: (imageRefId: string, mime: string, buffer: ArrayBuffer) => Promise<void>;
   // Pins (host e guest)
   updateMyPin: (x: number, y: number) => void;
   clearMyPin: () => void;
@@ -283,6 +357,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       activeMapId: null,
       sharedMap: null,
       playerPins: {},
+      battle: null,
     };
 
     hostRef.current = new SessionHost(
@@ -313,17 +388,23 @@ export function SessionProvider({ children }: { children: ReactNode }) {
           dispatch({ type: 'SET_PLAYER_PIN', pin: msg.pin });
           hostRef.current?.broadcast(msg, from);
           const snap = sessionRef.current;
+          const battle = snap.activeBattleMapId
+            ? snap.battleMaps.find(b => b.map.id === snap.activeBattleMapId) ?? null
+            : null;
           hostRef.current?.updateSnapshot({
-            ...snap, playerPins: { ...snap.playerPins, [msg.pin.peerId]: msg.pin },
+            ...snap, battle, playerPins: { ...snap.playerPins, [msg.pin.peerId]: msg.pin },
           } as SessionSnapshot);
         }
         if (msg.type === 'PLAYER_PIN_CLEAR') {
           dispatch({ type: 'CLEAR_PLAYER_PIN', peerId: msg.peerId });
           hostRef.current?.broadcast(msg, from);
-          const snap = { ...sessionRef.current } as SessionSnapshot;
+          const snap = sessionRef.current;
+          const battle = snap.activeBattleMapId
+            ? snap.battleMaps.find(b => b.map.id === snap.activeBattleMapId) ?? null
+            : null;
           const pins = { ...snap.playerPins };
           delete pins[msg.peerId];
-          hostRef.current?.updateSnapshot({ ...snap, playerPins: pins });
+          hostRef.current?.updateSnapshot({ ...snap, battle, playerPins: pins } as SessionSnapshot);
         }
         if (msg.type === 'MAP_IMAGE_ACK') {
           setMapTransferProgress(prev => {
@@ -331,6 +412,21 @@ export function SessionProvider({ children }: { children: ReactNode }) {
             delete next[msg.imageRefId];
             return next;
           });
+        }
+        // Host autoritativo: guest só move o próprio token (peerId do dono)
+        if (msg.type === 'TOKEN_MOVE') {
+          const cur = sessionRef.current;
+          const rec = cur.activeBattleMapId ? cur.battleMaps.find(b => b.map.id === cur.activeBattleMapId) : null;
+          const token = rec?.tokens.find(t => t.id === msg.tokenId);
+          if (rec && token && token.peerId === from) {
+            dispatch({ type: 'MOVE_BATTLE_TOKEN', tokenId: msg.tokenId, x: msg.x, y: msg.y });
+            hostRef.current?.broadcast(msg, from);
+            const movedTokens = rec.tokens.map(t => t.id === msg.tokenId ? { ...t, x: msg.x, y: msg.y } : t);
+            hostRef.current?.updateSnapshot({
+              ...sessionRef.current,
+              battle: { ...rec, tokens: movedTokens },
+            } as SessionSnapshot);
+          }
         }
       },
     );
@@ -526,6 +622,19 @@ export function SessionProvider({ children }: { children: ReactNode }) {
           dispatch({ type: 'SET_PLAYER_PIN', pin: msg.pin });
         } else if (msg.type === 'PLAYER_PIN_CLEAR') {
           dispatch({ type: 'CLEAR_PLAYER_PIN', peerId: msg.peerId });
+        } else if (msg.type === 'BATTLE_MAP_SHARE') {
+          const prevId = sessionRef.current.activeBattleMapId;
+          dispatch({ type: 'APPLY_BATTLE', battle: msg.battle });
+          if (msg.battle && msg.battle.map.id !== prevId) {
+            _addLog('system', 'Sistema', 'system', `Mestre ativou o grid de batalha: ${msg.battle.map.name}`);
+          } else if (!msg.battle && prevId) {
+            _addLog('system', 'Sistema', 'system', 'Grid de batalha desativado.');
+          }
+        } else if (msg.type === 'TOKEN_MOVE') {
+          dispatch({ type: 'MOVE_BATTLE_TOKEN', tokenId: msg.tokenId, x: msg.x, y: msg.y });
+        } else if (msg.type === 'FOG_UPDATE') {
+          const amid = sessionRef.current.activeBattleMapId;
+          if (amid) dispatch({ type: 'SET_FOG', mapId: amid, revealed: msg.revealed });
         }
       },
       onDisconnect: () => {
@@ -593,8 +702,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   // ── Combat helpers (host only) ──────────────────────────────────────────────
 
   const _getSnapshot = useCallback((): SessionSnapshot => {
-    const { peers, assignedCharacters, combat, audioState, tokens, activeMapId, sharedMap, playerPins } = sessionRef.current;
-    return { peers, assignedCharacters, combat, audioState, tokens, activeMapId, sharedMap, playerPins };
+    const { peers, assignedCharacters, combat, audioState, tokens, activeMapId, sharedMap, playerPins, battleMaps, activeBattleMapId } = sessionRef.current;
+    const battle = activeBattleMapId ? battleMaps.find(b => b.map.id === activeBattleMapId) ?? null : null;
+    return { peers, assignedCharacters, combat, audioState, tokens, activeMapId, sharedMap, playerPins, battle };
   }, []);
 
   const startCombat = useCallback((entries: InitiativeEntry[]) => {
@@ -753,6 +863,93 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     }
   }, [_getSnapshot]);
 
+  // ── Battle map helpers (Fase 9) ─────────────────────────────────────────────
+
+  const _broadcastBattle = useCallback((battle: BattleMapRecord | null): void => {
+    hostRef.current?.broadcast({ type: 'BATTLE_MAP_SHARE', battle } satisfies SessionMessage);
+    hostRef.current?.updateSnapshot({ ..._getSnapshot(), battle });
+  }, [_getSnapshot]);
+
+  const createBattleMap = useCallback((map: BattleMap, tokens: MapToken[] = []): void => {
+    const record: BattleMapRecord = { map, tokens, revealed: [] };
+    dispatch({ type: 'ADD_BATTLE_MAP', record });
+    _broadcastBattle(record);
+    _addLog('system', 'Sistema', 'system', `Grid de batalha criado: ${map.name}`);
+  }, [_addLog, _broadcastBattle]);
+
+  const activateBattleMap = useCallback((mapId: string | null): void => {
+    dispatch({ type: 'SET_ACTIVE_BATTLE_MAP', mapId });
+    const record = mapId ? sessionRef.current.battleMaps.find(b => b.map.id === mapId) ?? null : null;
+    _broadcastBattle(record);
+  }, [_broadcastBattle]);
+
+  const deleteBattleMap = useCallback((mapId: string): void => {
+    const wasActive = sessionRef.current.activeBattleMapId === mapId;
+    dispatch({ type: 'DELETE_BATTLE_MAP', mapId });
+    if (wasActive) _broadcastBattle(null);
+  }, [_broadcastBattle]);
+
+  const updateBattleMap = useCallback((mapId: string, patch: Partial<BattleMap>): void => {
+    dispatch({ type: 'UPDATE_BATTLE_MAP', mapId, patch });
+    const cur = sessionRef.current;
+    if (cur.activeBattleMapId !== mapId) return;
+    const rec = cur.battleMaps.find(b => b.map.id === mapId);
+    if (rec) _broadcastBattle({ ...rec, map: { ...rec.map, ...patch } });
+  }, [_broadcastBattle]);
+
+  const setBattleTokens = useCallback((mapId: string, tokens: MapToken[]): void => {
+    dispatch({ type: 'SET_BATTLE_TOKENS', mapId, tokens });
+    const cur = sessionRef.current;
+    if (cur.activeBattleMapId !== mapId) return;
+    const rec = cur.battleMaps.find(b => b.map.id === mapId);
+    if (rec) _broadcastBattle({ ...rec, tokens });
+  }, [_broadcastBattle]);
+
+  const moveBattleToken = useCallback((tokenId: string, x: number, y: number): void => {
+    const cur = sessionRef.current;
+    dispatch({ type: 'MOVE_BATTLE_TOKEN', tokenId, x, y });
+    if (cur.role === 'host') {
+      hostRef.current?.broadcast({ type: 'TOKEN_MOVE', tokenId, x, y } satisfies SessionMessage);
+      const rec = cur.activeBattleMapId ? cur.battleMaps.find(b => b.map.id === cur.activeBattleMapId) : null;
+      if (rec) {
+        const tokens = rec.tokens.map(t => t.id === tokenId ? { ...t, x, y } : t);
+        hostRef.current?.updateSnapshot({ ..._getSnapshot(), battle: { ...rec, tokens } });
+      }
+    } else {
+      // Movimento otimista local; o host valida a posse e retransmite aos demais
+      guestRef.current?.send({ type: 'TOKEN_MOVE', tokenId, x, y });
+    }
+  }, [_getSnapshot]);
+
+  const setFogCells = useCallback((mapId: string, revealed: FogCell[]): void => {
+    dispatch({ type: 'SET_FOG', mapId, revealed });
+    const cur = sessionRef.current;
+    if (cur.activeBattleMapId !== mapId) return;
+    const rec = cur.battleMaps.find(b => b.map.id === mapId);
+    if (!rec) return;
+    hostRef.current?.broadcast({ type: 'FOG_UPDATE', revealed } satisfies SessionMessage);
+    hostRef.current?.updateSnapshot({ ..._getSnapshot(), battle: { ...rec, revealed } });
+  }, [_getSnapshot]);
+
+  const pushBattleMapImage = useCallback(async (imageRefId: string, mime: string, buffer: ArrayBuffer): Promise<void> => {
+    if (!hostRef.current) return;
+    const targets = sessionRef.current.peers.filter(p => p.connected).map(p => p.peerId);
+    if (targets.length === 0) return;
+    const initial: Record<string, number> = {};
+    for (const pid of targets) initial[pid] = 0;
+    setMapTransferProgress(initial);
+    await hostRef.current.pushMapImage(
+      imageRefId,
+      mime,
+      buffer,
+      (peerId, sent, total) => {
+        setMapTransferProgress(prev => ({ ...prev, [peerId]: sent / total }));
+      },
+      targets,
+    );
+    setTimeout(() => setMapTransferProgress({}), 3000);
+  }, []);
+
   // ── Audio helpers ───────────────────────────────────────────────────────────
 
   const playAudioTrack = useCallback(async (trackId: string, options: PlayOptions = {}): Promise<void> => {
@@ -884,6 +1081,14 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       assignCharacter,
       shareMap,
       updateSharedMarkers,
+      createBattleMap,
+      activateBattleMap,
+      deleteBattleMap,
+      updateBattleMap,
+      setBattleTokens,
+      moveBattleToken,
+      setFogCells,
+      pushBattleMapImage,
       updateMyPin,
       clearMyPin,
       playAudioTrack,

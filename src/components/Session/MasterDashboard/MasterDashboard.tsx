@@ -9,6 +9,7 @@ import type { Character, Condition5e } from '../../../types/character';
 import { CONDITIONS, CONDITION_LABELS } from '../../../types/character';
 import type { SessionMessage } from '../../../net/protocol';
 import { AudioMixer } from '../AudioMixer/AudioMixer';
+import { BattleMapView } from '../BattleMap/BattleMapView';
 import styles from './MasterDashboard.module.css';
 
 function initials(name: string): string {
@@ -660,7 +661,15 @@ function InitiativeTracker({
 
 // ── Connection Bar ────────────────────────────────────────────────────────────
 
-function ConnectionBar({ onClose, showAudio, onToggleAudio }: { onClose: () => void; showAudio: boolean; onToggleAudio: () => void }) {
+function ConnectionBar({
+  onClose, showAudio, onToggleAudio, showBattle, onToggleBattle,
+}: {
+  onClose: () => void;
+  showAudio: boolean;
+  onToggleAudio: () => void;
+  showBattle: boolean;
+  onToggleBattle: () => void;
+}) {
   const { session } = useSessionStore();
   const [qrUrl, setQrUrl] = useState('');
   const [showQr, setShowQr] = useState(false);
@@ -704,6 +713,13 @@ function ConnectionBar({ onClose, showAudio, onToggleAudio }: { onClose: () => v
       >
         🎵
       </button>
+      <button
+        className={`btn btn-sm ${showBattle ? styles.btnAudioActive : ''}`}
+        onClick={onToggleBattle}
+        title="Grid de Batalha"
+      >
+        ⚔️🗺️
+      </button>
       <button className="btn btn-sm btn-danger" onClick={onClose}>Encerrar Sessão</button>
 
       {showQr && (
@@ -729,6 +745,7 @@ export function MasterDashboard({ onClose }: { onClose: () => void }) {
   const [characters, setCharacters] = useState<Character[]>([]);
   const [avatars, setAvatars] = useState<AvatarEntry[]>([]);
   const [showAudio, setShowAudio] = useState(false);
+  const [showBattle, setShowBattle] = useState(false);
 
   useEffect(() => {
     if (!activeWorldId) return;
@@ -758,13 +775,23 @@ export function MasterDashboard({ onClose }: { onClose: () => void }) {
 
   return (
     <div className={styles.dashboard}>
-      <ConnectionBar onClose={onClose} showAudio={showAudio} onToggleAudio={() => setShowAudio(s => !s)} />
+      <ConnectionBar
+        onClose={onClose}
+        showAudio={showAudio}
+        onToggleAudio={() => setShowAudio(s => !s)}
+        showBattle={showBattle}
+        onToggleBattle={() => setShowBattle(s => !s)}
+      />
       {showAudio && <AudioMixer />}
-      <div className={styles.panels}>
-        <PeersPanel characters={characters} avatars={avatars} />
-        <InitiativeTracker characters={characters} avatars={avatars} onEndCombat={handleEndCombat} />
-        <LogPanel />
-      </div>
+      {showBattle ? (
+        <BattleMapView />
+      ) : (
+        <div className={styles.panels}>
+          <PeersPanel characters={characters} avatars={avatars} />
+          <InitiativeTracker characters={characters} avatars={avatars} onEndCombat={handleEndCombat} />
+          <LogPanel />
+        </div>
+      )}
     </div>
   );
 }

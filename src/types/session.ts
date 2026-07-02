@@ -1,4 +1,5 @@
 import type { MapMarker } from './worldmap';
+import type { BattleMapRecord } from './map';
 
 export type SessionRole = 'host' | 'guest' | 'offline';
 
@@ -102,6 +103,8 @@ export interface SessionSnapshot {
   activeMapId: string | null;
   sharedMap: SharedMap | null;
   playerPins: Record<string, PlayerPin>;
+  // Grid de batalha ativo (Fase 9) — apenas o mapa ativo vai no snapshot
+  battle: BattleMapRecord | null;
 }
 
 export interface SessionState {
@@ -119,6 +122,9 @@ export interface SessionState {
   activeMapId: string | null;
   sharedMap: SharedMap | null;
   playerPins: Record<string, PlayerPin>;
+  // Grid de batalha (Fase 9): host mantém todos os mapas; guest só o ativo
+  battleMaps: BattleMapRecord[];
+  activeBattleMapId: string | null;
   log: LogEntry[];
 }
 
@@ -137,5 +143,7 @@ export const INITIAL_SESSION_STATE: SessionState = {
   activeMapId: null,
   sharedMap: null,
   playerPins: {},
+  battleMaps: [],
+  activeBattleMapId: null,
   log: [],
 };

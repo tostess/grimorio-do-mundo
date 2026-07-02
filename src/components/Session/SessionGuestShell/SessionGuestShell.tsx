@@ -3,6 +3,7 @@ import { useSessionStore } from '../../../store/sessionContext';
 import { CONDITION_LABELS } from '../../../types/character';
 import { SessionLobby } from '../SessionLobby/SessionLobby';
 import { GuestMapView } from '../../WorldMap/GuestMapView';
+import { GuestBattleView } from '../BattleMap/GuestBattleView';
 import styles from './SessionGuestShell.module.css';
 
 function AudioUnlockBanner() {
@@ -38,7 +39,7 @@ function initials(name: string): string {
     .join('') || '?';
 }
 
-type GuestTab = 'session' | 'character' | 'map';
+type GuestTab = 'session' | 'character' | 'map' | 'battle';
 
 function GuestCharacterView() {
   const { session } = useSessionStore();
@@ -194,14 +195,21 @@ export function SessionGuestShell() {
         >
           🗺️ Mapa
         </button>
+        <button
+          className={`${styles.tab} ${activeTab === 'battle' ? styles.tabActive : ''}`}
+          onClick={() => setActiveTab('battle')}
+        >
+          ⚔️ Grid
+        </button>
       </nav>
 
       <AudioUnlockBanner />
-      {/* Map tab needs overflow:hidden + flex to let canvas fill the area */}
-      <main className={`${styles.main} ${activeTab === 'map' ? styles.mainMap : ''}`}>
+      {/* Map/battle tabs need overflow:hidden + flex to let canvas fill the area */}
+      <main className={`${styles.main} ${activeTab === 'map' || activeTab === 'battle' ? styles.mainMap : ''}`}>
         {activeTab === 'session' && <SessionLobby />}
         {activeTab === 'character' && <GuestCharacterView />}
         {activeTab === 'map' && <GuestMapView />}
+        {activeTab === 'battle' && <GuestBattleView />}
       </main>
     </div>
   );

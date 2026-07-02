@@ -1,4 +1,5 @@
 import type { SessionSnapshot, PeerInfo, InitiativeEntry, PlayerPin, SharedMap } from '../types/session';
+import type { BattleMapRecord } from '../types/map';
 
 export type SessionMessage =
   | { type: 'JOIN_REQUEST'; peerId: string; playerName: string; characterId: string | null }
@@ -34,4 +35,7 @@ export type SessionMessage =
   | { type: 'MAP_IMAGE_ACK'; imageRefId: string }
   // Pins dos jogadores (posição livre no mapa, efêmera, não persiste no AppState)
   | { type: 'PLAYER_PIN_UPDATE'; pin: PlayerPin }
-  | { type: 'PLAYER_PIN_CLEAR'; peerId: string };
+  | { type: 'PLAYER_PIN_CLEAR'; peerId: string }
+  // Grid de batalha (Fase 9) — estado completo do mapa ativo (null = grid desativado).
+  // TOKEN_MOVE e FOG_UPDATE (acima) fazem as atualizações leves; imagem viaja via MAP_IMAGE_*
+  | { type: 'BATTLE_MAP_SHARE'; battle: BattleMapRecord | null };

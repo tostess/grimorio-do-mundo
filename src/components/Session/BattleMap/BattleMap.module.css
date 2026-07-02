@@ -1,0 +1,277 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  gap: 0.5rem;
+}
+
+/* ── Toolbar ── */
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  padding: 0.5rem 0.65rem;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.title {
+  font-size: 0.9rem;
+  color: var(--gold);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.spacer {
+  flex: 1;
+}
+
+.mapSelect,
+.brushSelect {
+  background: var(--bg-card);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.3rem 0.45rem;
+  font-size: 0.8rem;
+  max-width: 180px;
+}
+
+.brushSelect {
+  max-width: 70px;
+}
+
+.toolGroup {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0 0.35rem;
+  border-left: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+}
+
+.btnActive {
+  background: var(--gold-dark) !important;
+  color: #fff !important;
+  border-color: var(--gold) !important;
+}
+
+.fogToggle {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.fogToggle input {
+  accent-color: var(--gold);
+}
+
+.transferHint {
+  font-size: 0.75rem;
+  color: var(--gold-light);
+  white-space: nowrap;
+}
+
+/* ── Painéis (novo mapa / tokens / config) ── */
+
+.panel {
+  background: var(--bg-panel);
+  border: 1px solid var(--border-gold);
+  border-radius: 8px;
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.panelTitle {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--gold);
+}
+
+.panelFooter {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.formGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.5rem 0.75rem;
+}
+
+.formGrid label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.formGrid input,
+.formGrid select {
+  background: var(--bg-card);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.35rem 0.5rem;
+  font-size: 0.8rem;
+}
+
+.configActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+/* ── Tokens ── */
+
+.tokenSection {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.sectionLabel {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-dim);
+}
+
+.tokenBtnRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.npcForm {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.npcForm input,
+.npcForm select {
+  background: var(--bg-card);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.35rem 0.5rem;
+  font-size: 0.8rem;
+}
+
+.npcForm input {
+  flex: 1;
+  min-width: 140px;
+}
+
+.tokenList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.tokenRow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0.4rem;
+  background: var(--bg-card);
+  border-radius: 6px;
+  font-size: 0.8rem;
+}
+
+.tokenDot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  flex-shrink: 0;
+}
+
+.tokenName {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.npcBadge {
+  font-size: 0.65rem;
+  color: var(--red-light);
+  border: 1px solid var(--red);
+  border-radius: 4px;
+  padding: 0 0.3rem;
+}
+
+.removeBtn {
+  padding: 0.1rem 0.4rem !important;
+}
+
+/* ── Canvas ── */
+
+.canvasWrapper {
+  flex: 1;
+  min-height: 420px;
+  position: relative;
+  overflow: hidden;
+  background: #0a0a10;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  touch-action: none;
+}
+
+.crosshair {
+  cursor: crosshair;
+}
+
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  height: 100%;
+  min-height: 320px;
+  color: var(--text-muted);
+  text-align: center;
+  padding: 1rem;
+}
+
+.emptyIcon {
+  font-size: 2.5rem;
+}
+
+.emptyHint {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+}
+
+@media (max-width: 720px) {
+  .toolbar {
+    padding: 0.4rem 0.5rem;
+  }
+
+  .mapSelect {
+    max-width: 130px;
+  }
+
+  .canvasWrapper {
+    min-height: 300px;
+  }
+}
