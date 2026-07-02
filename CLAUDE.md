@@ -219,7 +219,7 @@ relações de eventos, gerador de NPC) ficam como sub-itens posteriores. A integ
 - [x] Build verificado: `npm run build` passou (01/07/2026)
 
 #### Próxima sessão
-- Núcleo do Mapa do Mundo concluído; Fase 9 (BattleMap) concluída em 02/07/2026 — próximos blocos: Fase 10 (Bestiário & Polimento) ou Worldbuilding Avançado (abaixo)
+- Núcleo do Mapa do Mundo concluído; Fase 9 (BattleMap) concluída em 02/07/2026 — **próxima etapa: Fase 9.5** (grid substitui mapa na sessão + sessões em abas/retomáveis)
 
 #### Worldbuilding Avançado (posterior — manter como pendente)
 - [ ] Árvore genealógica de personagens/facções
@@ -409,6 +409,24 @@ CharacterList (state: characters[], selectedId, subView)
 - Régua exibida apenas localmente no device do mestre (não sincronizada) — medição é ferramenta de consulta, não estado de jogo
 - Destaque do combatente ativo: anel dourado tracejado estático com glow (sem `Konva.Animation` — evita redraw contínuo do canvas)
 - Nota: `BattleMap` de sessão e mapa interativo do mundo (Fase 4) são componentes distintos; integração (linkar batalha a ponto do mapa-mundo) planejada para Fase 11+
+
+### Fase 9.5 — Grid substitui Mapa na Sessão + Sessões em Abas & Retomáveis (⏭️ PRÓXIMA ETAPA — registrada 02/07/2026, NÃO INICIADA)
+
+**Direção definida pelo usuário após a Fase 9. Executar antes da Fase 10.**
+
+#### 1. Substituir o sistema de mapa da sessão pelo sistema de grid
+O compartilhamento de mapa da sessão (Fase 4.5: `MAP_SHARE` + `GuestMapView` + player pins) e o grid de batalha (Fase 9: `BATTLE_MAP_SHARE` + `GuestBattleView`) são basicamente a mesma coisa — o grid é a versão mais interativa dentro da sessão. O grid deve **substituir** o sistema de mapa na sessão:
+
+- [ ] O fluxo "🌐 Compartilhar" do Mapa do Mundo passa a criar/ativar um **grid** com a imagem do mapa como fundo (em vez de `MAP_SHARE`) — marcadores revelados podem virar elementos do grid; pins dos jogadores viram tokens
+- [ ] Aposentar a vista `GuestMapView` e a aba "🗺️ Mapa" do guest — a aba "⚔️ Grid" cobre os dois casos (exploração + combate)
+- [ ] Avaliar deprecação das mensagens `MAP_SHARE` / `PLAYER_PIN_UPDATE` / `PLAYER_PIN_CLEAR` (manter `MAP_IMAGE_*`, que é o transporte de imagem usado pelo grid)
+- [ ] O Mapa do Mundo (aba 🗺️ do mestre, Fase 4) **permanece** como ferramenta de worldbuilding offline — a substituição é apenas na camada de sessão
+
+#### 2. Sessões em abas + iniciar nova ou continuar a anterior
+- [ ] As sessões devem ficar **em abas**, e não no menu principal
+- [ ] Ao abrir a área de sessão, o mestre escolhe: **"Nova sessão"** ou **"Continuar sessão anterior"**
+- [ ] Continuar a anterior exige persistir o estado da última sessão do mundo (hoje `SessionState` é 100% efêmero): código/host, mapas de batalha + tokens + névoa, atribuições de fichas, e possivelmente log — definir o que persiste (provável: nova tabela SQLite ou key no `world_states`) e o que continua efêmero (peers conectados, combate ativo)
+- [ ] Revisitar a exceção "SessionState é efêmero" em Convenções de Código ao implementar — a persistência de sessão retomável é uma exceção consciente nova que precisa ser documentada
 
 ### Fase 10 — Bestiário 5e & Polimento (PENDENTE)
 
